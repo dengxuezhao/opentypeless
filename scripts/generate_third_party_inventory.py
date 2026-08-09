@@ -14,6 +14,7 @@ runtime components.
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import json
 import os
@@ -30,6 +31,8 @@ ROOT = Path(__file__).resolve().parents[1]
 INVENTORY_OUTPUT = ROOT / "THIRD_PARTY_INVENTORY.md"
 LICENSES_OUTPUT = ROOT / "THIRD_PARTY_LICENSES.txt"
 CARGO_ABOUT_VERSION = "0.9.1"
+MAX_DIFF_LINES = 200
+MAX_DIFF_BYTES = 64 * 1024
 
 # These are the desktop targets built by .github/workflows/release.yml.
 TARGETS = (
@@ -39,6 +42,15 @@ TARGETS = (
     ("linux-arm64", "aarch64-unknown-linux-gnu"),
     ("win-x64", "x86_64-pc-windows-msvc"),
 )
+
+# cargo tree correctly keeps resolver-v2 host and target feature sets separate,
+# but build/proc-macro dependencies are selected for the machine running Cargo.
+# Releases build macOS artifacts on macOS, so normalize the two audited Tauri
+# host-build crates that otherwise disappear on Linux/Windows inventory runners.
+HOST_BUILD_SUPPLEMENTS = {
+    ("base64", "0.21.7"): frozenset({"mac-arm64", "mac-x64"}),
+    ("swift-rs", "1.0.7"): frozenset({"mac-arm64", "mac-x64"}),
+}
 
 LICENSE_FILE_RE = re.compile(
     r"^(licen[cs]e|copying|notice|copyright)([._-].*)?$", re.IGNORECASE
@@ -244,16 +256,17 @@ def cargo_environment(cargo: str) -> dict[str, str]:
     return environment
 
 
-def cargo_metadata(cargo: str) -> dict[str, object]:
+def cargo_metadata(cargo: str, target: str | None = None) -> dict[str, object]:
     command = [
         cargo,
         "metadata",
         "--format-version",
         "1",
         "--locked",
-        "--manifest-path",
-        str(ROOT / "src-tauri" / "Cargo.toml"),
     ]
+    if target is not None:
+        command.extend(["--filter-platform", target])
+    command.extend(["--manifest-path", str(ROOT / "src-tauri" / "Cargo.toml")])
     return json.loads(
         subprocess.check_output(
             command,
@@ -262,6 +275,36 @@ def cargo_metadata(cargo: str) -> dict[str, object]:
             text=True,
         )
     )
+
+
+def cargo_non_dev_closure(metadata: dict[str, object]) -> set[str]:
+    resolve = metadata.get("resolve")
+    if not isinstance(resolve, dict) or not resolve.get("root"):
+        raise RuntimeError("Cargo metadata has no resolved root package")
+
+    root_id = str(resolve["root"])
+    nodes = {str(node["id"]): node for node in resolve.get("nodes", [])}
+    pending: deque[str] = deque([root_id])
+    reachable = {root_id}
+    while pending:
+        package_id = pending.popleft()
+        try:
+            node = nodes[package_id]
+        except KeyError as error:
+            raise RuntimeError(
+                f"Cargo metadata has no resolve node for {package_id}"
+            ) from error
+        for dependency in node.get("deps", []):
+            if not any(
+                dependency_kind.get("kind") != "dev"
+                for dependency_kind in dependency.get("dep_kinds", [])
+            ):
+                continue
+            dependency_id = str(dependency["pkg"])
+            if dependency_id not in reachable:
+                reachable.add(dependency_id)
+                pending.append(dependency_id)
+    return reachable
 
 
 def cargo_tree(cargo: str, target: str, edges: str, no_dedupe: bool = False) -> str:
@@ -296,7 +339,9 @@ def cargo_components(cargo: str) -> dict[str, Component]:
         (package["name"], package["version"]): package for package in metadata["packages"]
     }
     if len(packages_by_key) != len(metadata["packages"]):
-        raise RuntimeError("Cargo graph contains duplicate name/version pairs from different sources")
+        raise RuntimeError(
+            "Cargo graph contains duplicate name/version pairs from different sources"
+        )
     root_id = metadata["resolve"]["root"]
     root = next(package for package in metadata["packages"] if package["id"] == root_id)
     root_key = (root["name"], root["version"])
@@ -363,6 +408,38 @@ def cargo_components(cargo: str) -> dict[str, Component]:
         }
         for key in all_keys - normal_keys - {root_key}:
             component_for(key).build_targets.add(target_label)
+
+    # Assert the supplement remains exactly scoped in Cargo's target-filtered
+    # non-dev graph, then overwrite any current-host leakage with canonical
+    # release-host membership.
+    supplement_presence = {key: set() for key in HOST_BUILD_SUPPLEMENTS}
+    for target_label, target_triple in TARGETS:
+        filtered = cargo_metadata(cargo, target_triple)
+        filtered_packages = {
+            package["id"]: package for package in filtered.get("packages", [])
+        }
+        closure_keys = {
+            (package["name"], package["version"])
+            for package_id in cargo_non_dev_closure(filtered)
+            if (package := filtered_packages.get(package_id)) is not None
+        }
+        for key in HOST_BUILD_SUPPLEMENTS:
+            if key in closure_keys:
+                supplement_presence[key].add(target_label)
+
+    for key, expected_targets in HOST_BUILD_SUPPLEMENTS.items():
+        actual_targets = supplement_presence[key]
+        if actual_targets != set(expected_targets):
+            raise RuntimeError(
+                f"audited host-build supplement {key[0]} {key[1]} changed target scope: "
+                f"expected {sorted(expected_targets)}, found {sorted(actual_targets)}"
+            )
+        component = component_for(key)
+        if component.runtime_targets:
+            raise RuntimeError(
+                f"audited host-build supplement became runtime-linked: {key[0]} {key[1]}"
+            )
+        component.build_targets = set(expected_targets)
 
     return result
 
@@ -535,6 +612,36 @@ def collect_cargo_license_blocks(
     components: dict[str, Component],
     blocks: dict[str, LicenseBlock],
 ) -> None:
+    locally_covered: set[str] = set()
+    # Preserve every packaged license/notice file before cargo-about runs. This
+    # also gives host-build supplements a complete local-text fallback when
+    # cargo-about's current-host graph does not contain them.
+    for component in components.values():
+        if component.manifest_path is None:
+            continue
+        package_dir = component.manifest_path.parent
+        texts: list[str] = []
+        for path in sorted(package_dir.rglob("*")):
+            if not path.is_file() or not LICENSE_FILE_RE.match(path.name):
+                continue
+            relative = path.relative_to(package_dir)
+            if any(
+                part.lower() in SKIPPED_LICENSE_DIRS for part in relative.parts[:-1]
+            ):
+                continue
+            if path.suffix.lower() not in TEXT_SUFFIXES:
+                continue
+            text = read_text_file(path)
+            texts.append(text)
+            add_license_block(
+                blocks,
+                f"Cargo supplied {relative.as_posix()}",
+                text,
+                {component.display},
+            )
+        if has_full_license_text(texts):
+            locally_covered.add(component.package_id)
+
     about = cargo_about_json(cargo)
     seen_components: set[str] = set()
     for license_info in about["licenses"]:
@@ -550,41 +657,34 @@ def collect_cargo_license_blocks(
             for used_by in license_info["used_by"]
             if used_by["crate"]["id"] in components
         )
-        add_license_block(
-            blocks,
-            f"cargo-about: {license_info['name']}",
-            license_info["text"],
-            displays,
-        )
+        normalized = normalize_text(license_info["text"])
+        digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+        existing = blocks.get(digest)
+        if existing is not None and any(
+            name.startswith("Cargo supplied ") for name in existing.names
+        ):
+            # cargo-about may choose either of two equivalent packaged files
+            # depending on filesystem traversal order. The local source label
+            # is stable; retain all component associations without adding the
+            # nondeterministic cargo-about label.
+            existing.components.update(displays)
+        else:
+            add_license_block(
+                blocks,
+                f"cargo-about: {license_info['name']}",
+                normalized,
+                displays,
+            )
 
-    missing = sorted(set(components) - seen_components)
+    missing = sorted(set(components) - seen_components - locally_covered)
     if missing:
         labels = ", ".join(
             f"{components[package_id].name} {components[package_id].version}"
             for package_id in missing
         )
-        raise RuntimeError(f"cargo-about produced no license text for: {labels}")
-
-    # cargo-about identifies package licenses, while this pass also preserves
-    # separately named NOTICE/COPYRIGHT files and vendored native license files.
-    for component in components.values():
-        if component.manifest_path is None:
-            continue
-        package_dir = component.manifest_path.parent
-        for path in sorted(package_dir.rglob("*")):
-            if not path.is_file() or not LICENSE_FILE_RE.match(path.name):
-                continue
-            relative = path.relative_to(package_dir)
-            if any(part.lower() in SKIPPED_LICENSE_DIRS for part in relative.parts[:-1]):
-                continue
-            if path.suffix.lower() not in TEXT_SUFFIXES:
-                continue
-            add_license_block(
-                blocks,
-                f"Cargo supplied {relative.as_posix()}",
-                read_text_file(path),
-                {component.display},
-            )
+        raise RuntimeError(
+            f"cargo-about and packaged files produced no complete license text for: {labels}"
+        )
 
 
 def render_table(components: list[Component], include_platforms: bool) -> list[str]:
@@ -642,6 +742,8 @@ def render_inventory(
         "  edge or stays inside a proc-macro host branch. Cargo dev edges are excluded. These ",
         "  crates are not described as shipped runtime components, although their license text ",
         "  is bundled conservatively.",
+        "- Audited host-build supplements normalize macOS-only tooling when the inventory runs ",
+        "  on another host; target-filtered Cargo metadata asserts their release-target scope.",
         "- Release targets: " + ", ".join(f"{label} (`{triple}`)" for label, triple in TARGETS),
         "",
         f"- npm runtime packages: {len(npm_runtime)}",
@@ -714,6 +816,46 @@ def write_or_check(path: Path, generated: str, check: bool) -> bool:
         current = path.read_text(encoding="utf-8") if path.exists() else ""
         if current != generated:
             print(f"{path.name} is stale; regenerate it", file=sys.stderr)
+            print(
+                f"committed sha256: "
+                f"{hashlib.sha256(current.encode('utf-8')).hexdigest()}",
+                file=sys.stderr,
+            )
+            print(
+                f"generated sha256: "
+                f"{hashlib.sha256(generated.encode('utf-8')).hexdigest()}",
+                file=sys.stderr,
+            )
+            diff = difflib.unified_diff(
+                current.splitlines(keepends=True),
+                generated.splitlines(keepends=True),
+                fromfile=f"{path.name} (committed)",
+                tofile=f"{path.name} (generated)",
+                n=3,
+            )
+            emitted_lines = 0
+            emitted_bytes = 0
+            omitted_lines = 0
+            truncated = False
+            for line in diff:
+                encoded = line.encode("utf-8")
+                if (
+                    truncated
+                    or emitted_lines >= MAX_DIFF_LINES
+                    or emitted_bytes + len(encoded) > MAX_DIFF_BYTES
+                ):
+                    truncated = True
+                    omitted_lines += 1
+                    continue
+                sys.stderr.write(line)
+                emitted_lines += 1
+                emitted_bytes += len(encoded)
+            if truncated:
+                print(
+                    f"... diff truncated after {emitted_lines} lines / "
+                    f"{emitted_bytes} bytes; omitted {omitted_lines} lines",
+                    file=sys.stderr,
+                )
             return False
         return True
     path.write_text(generated, encoding="utf-8")
@@ -722,21 +864,39 @@ def write_or_check(path: Path, generated: str, check: bool) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
+    check_group = parser.add_mutually_exclusive_group()
+    check_group.add_argument(
         "--check",
         action="store_true",
         help="fail when committed inventory or license material is stale",
+    )
+    check_group.add_argument(
+        "--check-inventory",
+        action="store_true",
+        help="check only the dependency inventory without invoking cargo-about",
     )
     arguments = parser.parse_args()
 
     cargo = find_cargo()
     npm = npm_components()
     cargo_items = cargo_components(cargo)
+    inventory = render_inventory(npm, cargo_items)
+    if arguments.check_inventory:
+        ok = write_or_check(INVENTORY_OUTPUT, inventory, check=True)
+        if ok:
+            print(
+                f"verified inventory: {len(npm)} npm runtime, "
+                f"{sum(bool(item.runtime_targets) for item in cargo_items.values())} "
+                f"Cargo runtime, "
+                f"{sum(not item.runtime_targets for item in cargo_items.values())} "
+                f"Cargo build-only"
+            )
+        return 0 if ok else 1
+
     blocks: dict[str, LicenseBlock] = {}
     collect_npm_license_blocks(npm, blocks)
     collect_cargo_license_blocks(cargo, cargo_items, blocks)
 
-    inventory = render_inventory(npm, cargo_items)
     licenses = render_licenses(blocks, npm, cargo_items)
     ok = write_or_check(INVENTORY_OUTPUT, inventory, arguments.check)
     ok = write_or_check(LICENSES_OUTPUT, licenses, arguments.check) and ok

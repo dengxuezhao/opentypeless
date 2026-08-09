@@ -15,6 +15,8 @@ Scope rules:
   edge or stays inside a proc-macro host branch. Cargo dev edges are excluded. These
   crates are not described as shipped runtime components, although their license text
   is bundled conservatively.
+- Audited host-build supplements normalize macOS-only tooling when the inventory runs
+  on another host; target-filtered Cargo metadata asserts their release-target scope.
 - Release targets: mac-arm64 (`aarch64-apple-darwin`), mac-x64 (`x86_64-apple-darwin`), linux-x64 (`x86_64-unknown-linux-gnu`), linux-arm64 (`aarch64-unknown-linux-gnu`), win-x64 (`x86_64-pc-windows-msvc`)
 
 - npm runtime packages: 19
@@ -484,7 +486,7 @@ bundled native Opus code are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 | async-recursion | 1.1.1 | MIT OR Apache-2.0 | linux-x64, linux-arm64 | https://github.com/dcchut/async-recursion |
 | async-trait | 0.1.89 | MIT OR Apache-2.0 | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/dtolnay/async-trait |
 | autocfg | 1.5.1 | Apache-2.0 OR MIT | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/cuviper/autocfg |
-| base64 | 0.21.7 | MIT OR Apache-2.0 | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/marshallpierce/rust-base64 |
+| base64 | 0.21.7 | MIT OR Apache-2.0 | mac-arm64, mac-x64 | https://github.com/marshallpierce/rust-base64 |
 | bindgen | 0.72.1 | BSD-3-Clause | mac-arm64, mac-x64 | https://github.com/rust-lang/rust-bindgen |
 | bit-set | 0.8.0 | Apache-2.0 OR MIT | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/contain-rs/bit-set |
 | bit-vec | 0.8.0 | Apache-2.0 OR MIT | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/contain-rs/bit-vec |
@@ -561,7 +563,7 @@ bundled native Opus code are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 | string_cache | 0.9.0 | MIT OR Apache-2.0 | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/servo/string-cache |
 | string_cache_codegen | 0.6.1 | MIT OR Apache-2.0 | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/servo/string-cache |
 | strsim | 0.11.1 | MIT | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/rapidfuzz/strsim-rs |
-| swift-rs | 1.0.7 | MIT OR Apache-2.0 | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/Brendonovich/swift-rs |
+| swift-rs | 1.0.7 | MIT OR Apache-2.0 | mac-arm64, mac-x64 | https://github.com/Brendonovich/swift-rs |
 | syn | 1.0.109 | MIT OR Apache-2.0 | linux-x64, linux-arm64 | https://github.com/dtolnay/syn |
 | synstructure | 0.13.2 | MIT | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/mystor/synstructure |
 | system-deps | 6.2.2 | MIT OR Apache-2.0 | linux-x64, linux-arm64 | https://github.com/gdesmott/system-deps |
