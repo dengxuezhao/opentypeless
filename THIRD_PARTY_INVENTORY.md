@@ -21,7 +21,7 @@ Scope rules:
 
 - npm runtime packages: 19
 - Cargo runtime-linked crates: 423
-- Cargo build-only crates: 122
+- Cargo build-only crates: 125
 
 Full extracted and synthesized license material is in
 [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt). Hand-maintained notices for
@@ -589,6 +589,8 @@ bundled native Opus code are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 | vcpkg | 0.2.15 | MIT/Apache-2.0 | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/mcgoo/vcpkg-rs |
 | version-compare | 0.2.1 | MIT | linux-x64, linux-arm64 | https://gitlab.com/timvisee/version-compare |
 | version_check | 0.9.5 | MIT/Apache-2.0 | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/SergioBenitez/version_check |
+| vswhom | 0.1.0 | MIT | win-x64 | https://github.com/nabijaczleweli/vswhom.rs |
+| vswhom-sys | 0.1.3 | MIT | win-x64 | https://github.com/nabijaczleweli/vswhom-sys.rs |
 | wayland-scanner | 0.31.10 | MIT | linux-x64, linux-arm64 | https://github.com/smithay/wayland-rs |
 | web_atoms | 0.2.4 | MIT OR Apache-2.0 | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/servo/html5ever |
 | webview2-com-macros | 0.8.1 | MIT | win-x64 | https://github.com/wravery/webview2-rs |
@@ -598,6 +600,7 @@ bundled native Opus code are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 | windows-interface | 0.59.3 | MIT OR Apache-2.0 | win-x64 | https://github.com/microsoft/windows-rs |
 | winnow | 0.5.40 | MIT | linux-x64, linux-arm64 | https://github.com/winnow-rs/winnow |
 | winnow | 0.7.15 | MIT | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/winnow-rs/winnow |
+| winreg | 0.55.0 | MIT | win-x64 | https://github.com/gentoo90/winreg-rs |
 | yoke-derive | 0.8.2 | Unicode-3.0 | mac-arm64, mac-x64, linux-x64, linux-arm64, win-x64 | https://github.com/unicode-org/icu4x |
 | zbus_macros | 5.16.0 | MIT | linux-x64, linux-arm64 | https://github.com/z-galaxy/zbus/ |
 | zerocopy-derive | 0.8.52 | BSD-2-Clause OR Apache-2.0 OR MIT | mac-arm64, mac-x64 | https://github.com/google/zerocopy |

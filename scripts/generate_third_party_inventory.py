@@ -50,6 +50,15 @@ TARGETS = (
 HOST_BUILD_SUPPLEMENTS = {
     ("base64", "0.21.7"): frozenset({"mac-arm64", "mac-x64"}),
     ("swift-rs", "1.0.7"): frozenset({"mac-arm64", "mac-x64"}),
+    ("vswhom", "0.1.0"): frozenset({"win-x64"}),
+    ("vswhom-sys", "0.1.3"): frozenset({"win-x64"}),
+    ("winapi-util", "0.1.11"): frozenset({"win-x64"}),
+    ("windows-link", "0.2.1"): frozenset({"win-x64"}),
+    ("windows-sys", "0.59.0"): frozenset({"win-x64"}),
+    ("windows-sys", "0.61.2"): frozenset({"win-x64"}),
+    ("windows-targets", "0.52.6"): frozenset({"win-x64"}),
+    ("windows_x86_64_msvc", "0.52.6"): frozenset({"win-x64"}),
+    ("winreg", "0.55.0"): frozenset({"win-x64"}),
 }
 
 LICENSE_FILE_RE = re.compile(
@@ -437,9 +446,11 @@ def cargo_components(cargo: str) -> dict[str, Component]:
                 f"expected {sorted(expected_targets)}, found {sorted(actual_targets)}"
             )
         component = component_for(key)
-        if component.runtime_targets:
+        unexpected_runtime_targets = component.runtime_targets - set(expected_targets)
+        if unexpected_runtime_targets:
             raise RuntimeError(
-                f"audited host-build supplement became runtime-linked: {key[0]} {key[1]}"
+                f"audited host-build supplement became runtime-linked outside its scope: "
+                f"{key[0]} {key[1]} on {sorted(unexpected_runtime_targets)}"
             )
         component.build_targets = set(expected_targets)
 
