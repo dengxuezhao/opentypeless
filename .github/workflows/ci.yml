@@ -80,15 +80,19 @@ jobs:
           - platform: windows-latest
             platform_group: windows
             target: x86_64-pc-windows-msvc
+            python: python
           - platform: macos-latest
             platform_group: macos
             target: aarch64-apple-darwin
+            python: python3
           - platform: ubuntu-latest
             platform_group: linux
             target: x86_64-unknown-linux-gnu
+            python: python3
           - platform: ubuntu-22.04-arm
             platform_group: linux
             target: aarch64-unknown-linux-gnu
+            python: python3
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -109,6 +113,9 @@ jobs:
       - uses: swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
         with:
           workspaces: src-tauri -> target
+
+      - name: Verify dependency inventory on the release build host
+        run: ${{ matrix.python }} scripts/generate_third_party_inventory.py --check-inventory
 
       - name: Install Linux dependencies
         if: matrix.platform_group == 'linux'
