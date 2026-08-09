@@ -273,6 +273,7 @@ def cargo_metadata(cargo: str, target: str | None = None) -> dict[str, object]:
             cwd=ROOT,
             env=cargo_environment(cargo),
             text=True,
+            encoding="utf-8",
         )
     )
 
@@ -330,6 +331,7 @@ def cargo_tree(cargo: str, target: str, edges: str, no_dedupe: bool = False) -> 
         cwd=ROOT,
         env=cargo_environment(cargo),
         text=True,
+        encoding="utf-8",
     )
 
 
@@ -545,7 +547,9 @@ def find_cargo_about() -> str:
             "cargo-about 0.9.1 is required; install with: "
             "cargo install cargo-about --version 0.9.1 --locked --features cli"
         )
-    version = subprocess.check_output([candidate, "--version"], text=True).strip()
+    version = subprocess.check_output(
+        [candidate, "--version"], text=True, encoding="utf-8"
+    ).strip()
     if version != f"cargo-about {CARGO_ABOUT_VERSION}":
         raise RuntimeError(
             f"cargo-about {CARGO_ABOUT_VERSION} is required, found: {version}"
@@ -603,6 +607,7 @@ workarounds = ["chrono", "cocoa", "gtk", "ring", "rustls", "rustix"]
                 cwd=ROOT,
                 env=cargo_environment(cargo),
                 text=True,
+                encoding="utf-8",
             )
         )
 
