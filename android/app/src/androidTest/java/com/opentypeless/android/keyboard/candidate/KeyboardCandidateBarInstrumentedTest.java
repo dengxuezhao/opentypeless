@@ -156,6 +156,21 @@ public final class KeyboardCandidateBarInstrumentedTest {
         });
     }
 
+    @Test
+    public void candidateSurfaceVisibilityChangesOnlyOnShowAndClearTransitions() {
+        onMain(() -> {
+            Harness harness = new Harness();
+
+            assertTrue(harness.visibilityChanges.isEmpty());
+            harness.bar.showPage(page("rime", 2L, 3L, 0, 1, "行", "型"));
+            harness.bar.showPage(page("rime", 2L, 4L, 0, 1, "形", "醒"));
+            harness.bar.clear();
+            harness.bar.clear();
+
+            assertEquals(List.of(true, false), harness.visibilityChanges);
+        });
+    }
+
     private static void onMain(Runnable action) {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(action);
     }
@@ -179,6 +194,7 @@ public final class KeyboardCandidateBarInstrumentedTest {
         final Context context = ApplicationProvider.getApplicationContext();
         final List<CandidatePage.Selection> selections = new ArrayList<>();
         final List<CandidatePage.PageRequest> pageRequests = new ArrayList<>();
+        final List<Boolean> visibilityChanges = new ArrayList<>();
         final KeyboardCandidateBar bar = new KeyboardCandidateBar(context, this);
 
         Harness() {
@@ -193,6 +209,11 @@ public final class KeyboardCandidateBarInstrumentedTest {
         @Override
         public void onPageRequested(CandidatePage.PageRequest request) {
             pageRequests.add(request);
+        }
+
+        @Override
+        public void onCandidateSurfaceVisibilityChanged(boolean visible) {
+            visibilityChanges.add(visible);
         }
     }
 }

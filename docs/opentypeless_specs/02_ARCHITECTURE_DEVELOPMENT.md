@@ -3351,6 +3351,12 @@ finish 同一 composition。selection、generation、revision、正文或策略�
 当前光标。详见
 [RIM-005 报告](../2026-08-16-rim-005-candidate-paging-selection.md)。
 
+2026-08-27 的展示补充把候选条与 QWERTY 工具行定义为同一高度位置的互斥 surface：没有稳定候选时显示
+`Auto / 麦克风 / 更多`；`KeyboardCandidateBar` 首次显示稳定页时隐藏该工具行，`clear()` 时立即恢复。候选连续换页
+不会重复切换，重复 clear 也不会重复通知。该可见性回调不携带 editor、native、网络或持久化能力；它只改变既有 View
+的 `VISIBLE/GONE`，因此组词时不会在键盘上方再叠一层或增加一行高度。详见
+[RIM-005 工具行替换报告](../2026-08-27-rim-005-candidate-toolbar-substitution.md)。
+
 ## 44. RIM-006 Schema 与 Option 配置
 
 `RimeRuntimeConfig` 只允许 active local package 中出现的 Schema ID，以及 `simplification`、`ascii_punct`、

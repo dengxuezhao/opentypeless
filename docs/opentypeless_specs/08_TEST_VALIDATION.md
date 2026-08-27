@@ -3536,6 +3536,12 @@ native session 按既有领域契约进入 `INACTIVE`，因此重复选择设备
 [2026-08-27 RIM-005 回归报告](../2026-08-27-rim-005-visible-integrated-candidate-strip.md)。本轮未连接 Xiaomi，真实
 小鹤 `xkvi` 候选内容明确 **NOT RUN**，不以合成词库结果冒充。
 
+同日工具行替换补充：API35 arm64 emulator 的候选 View **8/8 PASS**，其中新增测试锁定 show/clear 只发出
+`[true, false]` 两次 surface 转换；system-selected IME test-host **1/1 PASS**，确认 `ni` 出现候选时“更多语音键盘
+操作”节点消失，选择第二页 `庚` 后节点恢复。外部 ADB 触摸截图确认候选 `甲/乙/丙/丁` 与原工具行占据同一位置，
+没有额外键盘高度。完整命令、精确 APK 哈希和设备边界见
+[RIM-005 工具行替换报告](../2026-08-27-rim-005-candidate-toolbar-substitution.md)。
+
 ## 41. RIM-006 Schema 与 Option 恢复验收
 
 - 两个 ABI 由固定 librime/NDK/CMake 源码重建；native option allowlist、read-back、host-path leak 与精确 hash 全部 PASS。

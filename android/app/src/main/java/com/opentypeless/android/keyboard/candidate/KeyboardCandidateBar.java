@@ -22,6 +22,8 @@ public final class KeyboardCandidateBar {
         void onCandidateSelected(CandidatePage.Selection selection);
 
         void onPageRequested(CandidatePage.PageRequest request);
+
+        void onCandidateSurfaceVisibilityChanged(boolean visible);
     }
 
     private final Context context;
@@ -35,6 +37,7 @@ public final class KeyboardCandidateBar {
     private CandidatePage renderedPage;
     private boolean plaintextVisible;
     private boolean interactionEnabled = true;
+    private boolean surfaceVisible;
 
     public KeyboardCandidateBar(Context context, Listener listener) {
         this.context = Objects.requireNonNull(context, "context");
@@ -143,7 +146,7 @@ public final class KeyboardCandidateBar {
         nextButton.setVisibility(page.hasNextPage() ? View.VISIBLE : View.GONE);
         refreshEnabledState();
         scroller.scrollTo(0, 0);
-        root.setVisibility(View.VISIBLE);
+        setSurfaceVisible(true);
         return true;
     }
 
@@ -153,7 +156,14 @@ public final class KeyboardCandidateBar {
         candidateRow.removeAllViews();
         previousButton.setVisibility(View.GONE);
         nextButton.setVisibility(View.GONE);
-        root.setVisibility(View.GONE);
+        setSurfaceVisible(false);
+    }
+
+    private void setSurfaceVisible(boolean visible) {
+        if (surfaceVisible == visible) return;
+        surfaceVisible = visible;
+        root.setVisibility(visible ? View.VISIBLE : View.GONE);
+        listener.onCandidateSurfaceVisibilityChanged(visible);
     }
 
     private void dispatchSelection(CandidatePage page, int candidateIndex) {

@@ -71,6 +71,14 @@ class CandidateBarContractTest(unittest.TestCase):
         self.mutate(BAR, "renderedPage != page", "renderedPage == null")
         self.assertIn("KBD007_VIEW_CONTRACT", self.rules())
 
+    def test_rejects_candidate_surface_without_toolbar_replacement(self) -> None:
+        self.mutate(
+            SERVICE,
+            "setCandidateToolbarReplacementActive(visible);",
+            "keyboardCandidateBar.setInteractionEnabled(visible);",
+        )
+        self.assertIn("KBD007_SERVICE_WIRING", self.rules())
+
     def test_rejects_missing_finish_input_clear(self) -> None:
         self.mutate(
             SERVICE,

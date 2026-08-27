@@ -935,6 +935,11 @@ EditorTransaction delivery，随后才在有界 worker 预激活下一会话，�
 expected text。候选条改为键盘同底色、静止态透明的 48dp 扁平行，不绘制第二排白色按键卡片或额外悬浮窗口。进程内
 中英偏好与下一会话预热保持不变，真实小鹤仍为 zero-bundle。
 
+**RIM-005 候选工具行替换补充（2026-08-27）：** 中文组词时，稳定候选页现在直接替代 QWERTY 顶部
+`Auto / 麦克风 / 更多` 工具行；候选清空、提交、切换引擎、进入敏感字段或结束输入时恢复工具行。候选与工具行始终
+只有一个可见，连续页更新和重复 clear 不产生重复切换，因此不会新增键盘高度或悬浮图层。可见性回调无 editor/native
+能力；候选 identity、pending 锁与 zero-bundle 边界保持不变。
+
 **KBD-001 完成说明（2026-08-16，`DONE`）：** 产品 `OpenTypelessImeService` 现只在 `onCreate` 读取一次
 `keyboard_shell_route_a`，并通过闭合 `KeyboardShellSelector` 创建 Route-A 或 legacy voice 二者之一；selected factory
 失败时不 fallback，单个 service lifetime 不会跨路由或双写。Route-A frame 只持有 toolbar/composition/key/extension

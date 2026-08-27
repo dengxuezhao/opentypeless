@@ -1188,6 +1188,11 @@ public final class OpenTypelessImeService extends InputMethodService
                         public void onPageRequested(CandidatePage.PageRequest request) {
                             routeRimeCandidatePage(request);
                         }
+
+                        @Override
+                        public void onCandidateSurfaceVisibilityChanged(boolean visible) {
+                            setCandidateToolbarReplacementActive(visible);
+                        }
                     });
             keyboardCandidateBar.setPlaintextVisible(currentEditor != null && !sensitiveField);
             compositionStage.addView(keyboardCandidateBar.root(), matchWrap());
@@ -3609,6 +3614,11 @@ public final class OpenTypelessImeService extends InputMethodService
             return;
         }
         if (bar.showPage(page)) bar.setInteractionEnabled(true);
+    }
+
+    private void setCandidateToolbarReplacementActive(boolean active) {
+        KeyboardToolbarLayout toolbar = keyboardToolbarLayout;
+        if (toolbar != null) toolbar.root().setVisibility(active ? View.GONE : View.VISIBLE);
     }
 
     private void finishEmptyRimeComposition(RimeCompositionLease lease) {

@@ -668,6 +668,9 @@ public final class TestHostInstrumentedTest {
             activateImeNode(automation, expectedPackage, latinActive, false);
         }
         awaitImeLabel(automation, expectedPackage, rimeActive);
+        Set<String> toolbarAnchor = Set.of(
+                "More voice keyboard actions", "更多语音键盘操作");
+        awaitImeLabel(automation, expectedPackage, toolbarAnchor);
         Set<String> nKey = Set.of(
                 "n; touch and hold for !", "n；长按输入 !");
         awaitImeLabel(automation, expectedPackage, nKey);
@@ -678,6 +681,7 @@ public final class TestHostInstrumentedTest {
         assertPlainTextEventually("ni", automation, expectedPackage);
         awaitImeLabel(automation, expectedPackage, Set.of(
                 "Candidate 1: 甲", "第 1 个候选：甲"));
+        awaitImeLabelsAbsent(automation, expectedPackage, toolbarAnchor);
         activateImeNode(automation, expectedPackage, Set.of(
                 "Next candidate page", "下一页候选"), false);
         awaitImeLabel(automation, expectedPackage, Set.of(
@@ -685,6 +689,7 @@ public final class TestHostInstrumentedTest {
         activateImeNode(automation, expectedPackage, Set.of(
                 "Candidate 2: 庚", "第 2 个候选：庚"), false);
         assertPlainTextEventually("庚", automation, expectedPackage);
+        awaitImeLabel(automation, expectedPackage, toolbarAnchor);
     }
 
     private void assertPlainTextEventually(
@@ -725,6 +730,19 @@ public final class TestHostInstrumentedTest {
             SystemClock.sleep(100L);
         } while (SystemClock.uptimeMillis() < deadline);
         assertTrue("input method label not found: " + labels + "; observed=" + observed, false);
+    }
+
+    private void awaitImeLabelsAbsent(
+            UiAutomation automation, String expectedPackage, Set<String> labels) {
+        long deadline = SystemClock.uptimeMillis() + 3_000L;
+        Set<String> observed = Set.of();
+        do {
+            observed = inputMethodLabels(automation, expectedPackage);
+            if (observed.stream().noneMatch(labels::contains)) return;
+            SystemClock.sleep(100L);
+        } while (SystemClock.uptimeMillis() < deadline);
+        assertTrue("input method labels remained visible: " + labels
+                + "; observed=" + observed, false);
     }
 
     private void clickImeNode(

@@ -117,12 +117,14 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "interfaceListener{",
         "onCandidateSelected(CandidatePage.Selectionselection)",
         "onPageRequested(CandidatePage.PageRequestrequest)",
+        "onCandidateSurfaceVisibilityChanged(booleanvisible)",
         "renderedPage!=page",
         "if(!visible)clear()",
         "candidateRow.removeAllViews()",
         "root.setVisibility(View.GONE)",
         "listener.onCandidateSelected(page.selection(candidateIndex))",
         "listener.onPageRequested(page.pageRequest(direction))",
+        "listener.onCandidateSurfaceVisibilityChanged(visible)",
         "root.setBackgroundColor(context.getColor(R.color.ime_surface))",
         "button.setBackgroundResource(R.drawable.app_nav_button_background)",
     )
@@ -147,6 +149,8 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "keyboardCandidateBar.setInteractionEnabled(editorEnabled)",
         "routeRimeCandidateSelection(selection)",
         "routeRimeCandidatePage(request)",
+        "setCandidateToolbarReplacementActive(visible)",
+        "toolbar.root().setVisibility(active ? View.GONE : View.VISIBLE)",
         "lease.pendingSelection = selection",
         "lease.pendingPageRequest = request",
         "rejectUnboundCandidateEvent()",
@@ -183,6 +187,7 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "disabledInteractionAndFortyEightDpTargetsRemainFailClosed",
         "latinAndRimePagesReuseTheSameViewWithoutRetainingOldText",
         "candidateStripUsesIntegratedSurfaceWithoutFloatingKeyCards",
+        "candidateSurfaceVisibilityChangesOnlyOnShowAndClearTransitions",
     )
     if any(token not in view_test for token in view_test_tokens):
         violations.append(Violation(

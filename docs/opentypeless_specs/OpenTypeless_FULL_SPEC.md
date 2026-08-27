@@ -4275,6 +4275,12 @@ finish 同一 composition。selection、generation、revision、正文或策略�
 当前光标。详见
 [RIM-005 报告](../2026-08-16-rim-005-candidate-paging-selection.md)。
 
+2026-08-27 的展示补充把候选条与 QWERTY 工具行定义为同一高度位置的互斥 surface：没有稳定候选时显示
+`Auto / 麦克风 / 更多`；`KeyboardCandidateBar` 首次显示稳定页时隐藏该工具行，`clear()` 时立即恢复。候选连续换页
+不会重复切换，重复 clear 也不会重复通知。该可见性回调不携带 editor、native、网络或持久化能力；它只改变既有 View
+的 `VISIBLE/GONE`，因此组词时不会在键盘上方再叠一层或增加一行高度。详见
+[RIM-005 工具行替换报告](../2026-08-27-rim-005-candidate-toolbar-substitution.md)。
+
 ## 44. RIM-006 Schema 与 Option 配置
 
 `RimeRuntimeConfig` 只允许 active local package 中出现的 Schema ID，以及 `simplification`、`ascii_punct`、
@@ -9913,6 +9919,11 @@ Debug/Release JVM 各 1032/1032，preflight 120 script + 221 architecture tests 
 的 actual librime 和 system-selected IME 候选契约各 1/1 PASS；模拟器外部真实触控 `ni -> 下一页 -> 庚`，宿主读回精确
 `庚`。合成包与 active state 已清除，小米默认 PangIME 已恢复。下一项个人可用 P0 为 RIM-006。
 
+**RIM-005 候选展示与工具行替换补充（2026-08-27）：** RIM-013 的全局候选 suppression 已撤回；稳定候选页使用
+键盘同底色、透明项的 48dp 扁平行，并在中文组词时直接替代 `Auto / 麦克风 / 更多` 工具行。候选清空或提交后恢复
+工具行，二者始终只有一个可见，不新增键盘高度或悬浮图层。generation、page revision、candidate identity、pending
+锁、敏感字段和真实小鹤 zero-bundle 边界不变。
+
 **RIM-006 完成说明（2026-08-16，`DONE`）：** 设置页现列出 active local package 的已安装 Schema，并持久化
 selected Schema、简化输出、ASCII 标点和全角三项闭合选项；未知/移除 Schema 自动修复到首个已安装项，互斥标点模式
 fail closed。librime option 经 JNI 写后读回，session 重建时恢复。最终双 ABI source-first native build、186-task clean graph、
@@ -13926,6 +13937,13 @@ architecture-gate 114/114、Debug/Release compiled 2/2 与 strict offline 191-ta
 
 本任务关闭 bounded candidate page 与一次性选择，不外推为无限候选、持久 UserDB、真实小鹤、Schema option 或
 Voice/Rime arbitration。
+
+2026-08-27 回归与工具行替换补充：API35 arm64 emulator 的候选 View **8/8 PASS**、actual librime **1/1 PASS**、
+system-selected IME test-host **1/1 PASS**。后者确认 `ni` 出现候选时“更多语音键盘操作”节点消失，第二页次选 `庚`
+提交后节点恢复；外部 ADB 触摸截图确认候选和工具行复用同一高度位置。完整证据见
+[RIM-005 候选展示报告](../2026-08-27-rim-005-visible-integrated-candidate-strip.md)及
+[RIM-005 工具行替换报告](../2026-08-27-rim-005-candidate-toolbar-substitution.md)。本轮 Xiaomi 与真实小鹤 `xkvi`
+均 **NOT RUN**。
 
 ## 41. RIM-006 Schema 与 Option 恢复验收
 
