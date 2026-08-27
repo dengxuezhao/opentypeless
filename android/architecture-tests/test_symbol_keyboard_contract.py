@@ -62,8 +62,8 @@ class SymbolKeyboardContractTest(unittest.TestCase):
         path = self.root / LAYOUT
         path.write_text(
             path.read_text(encoding="utf-8").replace(
-                "listener.insertText(symbol)",
-                "listener.insertText(symbol); listener.insertText(symbol)",
+                "listener.insertText(output)",
+                "listener.insertText(output); listener.insertText(output)",
                 1,
             ),
             encoding="utf-8",

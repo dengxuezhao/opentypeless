@@ -19,6 +19,7 @@ import android.widget.TextView;
 import com.opentypeless.android.R;
 import com.opentypeless.android.keyboard.feedback.KeyboardFeedback;
 import com.opentypeless.android.keyboard.field.KeyboardFieldProfile;
+import com.opentypeless.android.keyboard.rime.PendingRimeSymbols;
 import com.opentypeless.android.keyboard.switching.KeyboardEngineSelection;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,6 +107,7 @@ public final class LatinKeyboardLayout {
     private final BoundedDeleteRepeater deleteRepeater;
     private final List<Button> profileShortcutButtons = new ArrayList<>();
     private KeyboardFieldProfile fieldProfile = KeyboardFieldProfile.GENERAL;
+    private KeyboardEngineSelection.Engine activeEngine = KeyboardEngineSelection.Engine.LATIN;
     private boolean inputEnabled = true;
     private boolean suppressDeleteClick;
 
@@ -208,7 +210,7 @@ public final class LatinKeyboardLayout {
                 ",",
                 context.getString(R.string.ime_cd_comma),
                 .8f,
-                () -> listener.insertText(","),
+                () -> listener.insertText(symbolForActiveEngine(",")),
                 false);
         addWeighted(bottomRow, commaButton, .8f);
         spaceButton = createKey(
@@ -222,7 +224,7 @@ public final class LatinKeyboardLayout {
                 ".",
                 context.getString(R.string.ime_cd_period),
                 .8f,
-                () -> listener.insertText("."),
+                () -> listener.insertText(symbolForActiveEngine(".")),
                 false);
         addWeighted(bottomRow, periodButton, .8f);
         enterButton = createKey(
@@ -353,6 +355,7 @@ public final class LatinKeyboardLayout {
 
     public void setEngineSelection(KeyboardEngineSelection selection) {
         KeyboardEngineSelection safe = Objects.requireNonNull(selection, "selection");
+        activeEngine = safe.active();
         state.resetToLetters();
         // Keep one stable language slot: a verified local Rime engine gets the short press;
         // otherwise the slot opens the explicit local-import flow. System IME selection remains
@@ -383,12 +386,13 @@ public final class LatinKeyboardLayout {
     }
 
     private void addLetter(LinearLayout row, char letter, String longPressSymbol) {
+        String alternate = symbolForActiveEngine(longPressSymbol);
         Button button = createKey(
                 Character.toString(letter),
                 context.getString(
                         R.string.ime_cd_letter_with_long_press,
                         Character.toString(letter),
-                        longPressSymbol),
+                        alternate),
                 1f,
                 () -> {
                     listener.insertText(state.consumeLetter(letter));
@@ -401,14 +405,14 @@ public final class LatinKeyboardLayout {
         button.setIncludeFontPadding(false);
         button.setLineSpacing(-dp(4), 1f);
         button.setGravity(Gravity.CENTER);
-        setLetterDisplay(button, Character.toString(letter), longPressSymbol);
+        setLetterDisplay(button, Character.toString(letter), alternate);
         DownFlickGesture flickGesture = new DownFlickGesture(Math.max(
                 dp(12), ViewConfiguration.get(context).getScaledTouchSlop()));
-        configureLetterFlick(button, longPressSymbol, flickGesture);
+        configureLetterFlick(button, alternate, flickGesture);
         button.setOnLongClickListener(ignored -> {
             if (!flickGesture.commitLongPress()) return true;
             feedback.onLongPress(button);
-            listener.insertText(longPressSymbol);
+            listener.insertText(alternate);
             return true;
         });
         letters.put(letter, button);
@@ -475,7 +479,8 @@ public final class LatinKeyboardLayout {
     }
 
     private void addSymbol(LinearLayout row, String symbol) {
-        Button button = createKey(symbol, symbol, 1f, () -> listener.insertText(symbol), true);
+        String output = symbolForActiveEngine(symbol);
+        Button button = createKey(output, output, 1f, () -> listener.insertText(output), true);
         button.setTag("opentypeless-symbol-" + symbol);
         button.setEnabled(inputEnabled);
         symbols.put(symbol, button);
@@ -566,6 +571,8 @@ public final class LatinKeyboardLayout {
             periodButton.setVisibility(View.VISIBLE);
         }
         root.setContentDescription(context.getString(profileDescription(fieldProfile)));
+        commaButton.setText(symbolForActiveEngine(","));
+        periodButton.setText(symbolForActiveEngine("."));
         setInputEnabled(inputEnabled);
     }
 
@@ -613,7 +620,7 @@ public final class LatinKeyboardLayout {
         for (Map.Entry<Character, Button> entry : letters.entrySet()) {
             String label = state.displayLetter(entry.getKey());
             Button button = entry.getValue();
-            String alternate = longPressSymbolFor(entry.getKey());
+            String alternate = symbolForActiveEngine(longPressSymbolFor(entry.getKey()));
             setLetterDisplay(button, label, alternate);
             button.setContentDescription(context.getString(
                     R.string.ime_cd_letter_with_long_press,
@@ -649,6 +656,12 @@ public final class LatinKeyboardLayout {
             if (index >= 0) return LONG_PRESS_ROWS[row].substring(index, index + 1);
         }
         throw new IllegalArgumentException("unknown letter");
+    }
+
+    private String symbolForActiveEngine(String symbol) {
+        boolean asciiPunctuation = activeEngine != KeyboardEngineSelection.Engine.RIME
+                || fieldProfile != KeyboardFieldProfile.GENERAL;
+        return PendingRimeSymbols.normalize(symbol, asciiPunctuation);
     }
 
     private Button createKey(

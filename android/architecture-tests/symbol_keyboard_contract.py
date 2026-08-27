@@ -94,8 +94,8 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         'SYMBOL_ROWS_SECONDARY={{"~","`","|","•","√","π","÷","×","§","∆"},'
         '{"€","£","¥","₩","¢","^","°","=","{","}"},'
         '{"\\\\","_","[","]","<",">","…","¿","¡"}}',
-        "button.setOnLongClickListener(ignored->{if(!flickGesture.commitLongPress())returntrue;feedback.onLongPress(button);listener.insertText(longPressSymbol);returntrue;})",
-        "listener.insertText(symbol)",
+        "button.setOnLongClickListener(ignored->{if(!flickGesture.commitLongPress())returntrue;feedback.onLongPress(button);listener.insertText(alternate);returntrue;})",
+        "listener.insertText(output)",
         "state.pressSymbolsToggle()",
         "state.pressSymbolPage()",
         "symbolPageButton.setVisibility(View.GONE)",
@@ -105,8 +105,8 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     )
     if (
         any(token not in compact for token in layout_tokens)
-        or layout.count("listener.insertText(symbol)") != 1
-        or layout.count("listener.insertText(longPressSymbol)") != 1
+        or layout.count("listener.insertText(output)") != 1
+        or layout.count("listener.insertText(alternate)") != 2
         or "catch (" in layout
     ):
         violations.append(Violation(

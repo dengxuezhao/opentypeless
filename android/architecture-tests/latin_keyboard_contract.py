@@ -151,9 +151,11 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         ))
 
     flick_layout_tokens = (
+        "activeEngine = safe.active()",
+        "PendingRimeSymbols.normalize(symbol, asciiPunctuation)",
         "new DownFlickGesture(Math.max(",
         "dp(12), ViewConfiguration.get(context).getScaledTouchSlop())",
-        "configureLetterFlick(button, longPressSymbol, flickGesture)",
+        "configureLetterFlick(button, alternate, flickGesture)",
         "action == DownFlickGesture.ReleaseAction.COMMIT_ALTERNATE",
         "listener.insertText(alternate)",
         "gesture.cancel()",
@@ -161,7 +163,7 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     if (
         any(token not in layout for token in flick_layout_tokens)
         or layout.count("gesture.cancel();") != 2
-        or layout.count("listener.insertText(alternate);") != 1
+        or layout.count("listener.insertText(alternate);") != 2
     ):
         violations.append(Violation(
             "KBD015_FLICK_LAYOUT",

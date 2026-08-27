@@ -53,8 +53,38 @@ public final class PendingRimeSymbols {
         }
         if (asciiPunctuation) return symbol;
         return switch (symbol) {
+            case "@" -> "＠";
+            case "#" -> "＃";
+            case "$" -> "＄";
+            case "%" -> "％";
+            case "&" -> "＆";
+            case "-" -> "－";
+            case "+" -> "＋";
+            case "(" -> "（";
+            case ")" -> "）";
+            case "/" -> "／";
+            case "*" -> "＊";
+            case "\"" -> "＂";
+            case "'" -> "＇";
+            case ":" -> "：";
+            case ";" -> "；";
+            case "!" -> "！";
+            case "?" -> "？";
             case "," -> "，";
             case "." -> "。";
+            case "~" -> "～";
+            case "`" -> "｀";
+            case "|" -> "｜";
+            case "^" -> "＾";
+            case "=" -> "＝";
+            case "{" -> "｛";
+            case "}" -> "｝";
+            case "\\" -> "＼";
+            case "_" -> "＿";
+            case "[" -> "［";
+            case "]" -> "］";
+            case "<" -> "＜";
+            case ">" -> "＞";
             default -> symbol;
         };
     }

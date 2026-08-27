@@ -240,6 +240,11 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "RimeInputEngine.Key.printable(codePoint)",
         'case","->"，"',
         'case"."->"。"',
+        'case"?"->"？"',
+        'case"!"->"！"',
+        'case"@"->"＠"',
+        'case"("->"（"',
+        'case")"->"）"',
         "PendingRimeSymbols{count=",
         "<redacted>",
     )

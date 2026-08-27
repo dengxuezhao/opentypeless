@@ -85,19 +85,19 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         'DATE_ROWS={{"1","2","3"},{"4","5","6"},{"7","8","9","/","0","-","."}}',
         'caseEMAIL->newString[]{"@"}',
         'caseURI->newString[]{"/",":"}',
-        '()->listener.insertText(",")',
-        '()->listener.insertText(".")',
+        '()->listener.insertText(symbolForActiveEngine(","))',
+        '()->listener.insertText(symbolForActiveEngine("."))',
         "fieldProfile.usesNumericPanel()",
         "state.resetToLetters()",
         "listener.insertText(shortcuts[index])",
-        "listener.insertText(symbol)",
+        "listener.insertText(output)",
         "root.setContentDescription(context.getString(profileDescription(fieldProfile)))",
     )
     if (
         any(token not in compact for token in layout_tokens)
         or layout.count("listener.insertText(shortcuts[index])") != 1
-        or layout.count('() -> listener.insertText(",")') != 1
-        or layout.count('() -> listener.insertText(".")') != 1
+        or layout.count('() -> listener.insertText(symbolForActiveEngine(","))') != 1
+        or layout.count('() -> listener.insertText(symbolForActiveEngine("."))') != 1
         or "catch (" in layout
     ):
         violations.append(Violation(

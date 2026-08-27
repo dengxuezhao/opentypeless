@@ -991,6 +991,12 @@ JVM 状态机/边界测试与 API35 ARM64 emulator 的 16 项字母布局仪器�
 真实 Test Host 对 `q` 向下滑动精确输入 `1`，键帽截图确认三行字母的替代符号均可见。小米 10 Ultra
 本次未连接，因此不宣称真机安装或验收。
 
+**KBD-015 标点状态跟进（2026-08-27，`DONE`）：** `GENERAL` 字段的字母提示、长按、下滑、两页符号与底栏
+逗号/句号现在由同一 active-engine 状态派生：EN 精确输出 ASCII，切到“中”后同步显示并输出固定全角字符，切回
+EN 恢复半角；数字及结构化/敏感字段保持原字符。转换不改变现有最多 8 个 Rime 后缀、候选 identity 或唯一 ETM
+路径。JVM 1085/1085、architecture 272/272、API35 ARM64 emulator View 17/17、Release Lint 与三 APK build PASS；
+本轮无 Xiaomi 连接，因此真机项 `NOT RUN`。
+
 **KBD-011 完成说明（2026-08-23，`DONE`）：** More 菜单新增当前剪贴板面板，只在用户打开或刷新时读取一次
 第一项已物化纯文本；URI/Intent 不解析，文本按 ETM 上限校验。面板无 ClipboardManager/editor capability，关闭、
 字段切换、InputView/窗口隐藏和 service 销毁都会清空正文。敏感字段不生成入口并破坏性关闭旧面板，所有 Paste

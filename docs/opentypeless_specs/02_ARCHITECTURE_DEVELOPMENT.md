@@ -3140,6 +3140,11 @@ Latin 模式继续经 `insertKeyboardText` 和唯一 ETM。Rime 空闲时同样�
 最多暂存 8 个 Unicode scalar，先选择当前精确候选页的第一项，再把候选与符号作为同一次组合终态提交。
 候选身份、revision、editor epoch 或 selection 任一失配均 fail closed，不允许改写当前光标。
 
+屏幕快捷符号的展示与提交必须同步跟随当前引擎：普通 `GENERAL` 字段在 Latin/EN 下使用原 ASCII inventory，
+在 Rime/中下使用固定的一对一全角标点表；字母提示、长按、下滑、符号页及底栏逗号/句号不能各自保存另一份
+语言状态。数字、日期、电话、邮箱、URI 与密码字段继续输出原始 ASCII，避免全角字符破坏结构化值。转换结果仍是
+单一安全 Unicode scalar，并继续经过同一个 keyboard callback、Rime 组合边界与 ETM，不新增 editor writer。
+
 ---
 
 ## 32. KBD-004 字段专用布局

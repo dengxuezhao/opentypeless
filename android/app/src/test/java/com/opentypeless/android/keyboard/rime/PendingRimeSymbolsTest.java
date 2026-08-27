@@ -38,11 +38,24 @@ public final class PendingRimeSymbolsTest {
     }
 
     @Test
-    public void punctuationOptionNormalizesOnlyCommaAndPeriod() {
+    public void punctuationModeNormalizesBoundedAsciiInventory() {
         assertEquals(",", PendingRimeSymbols.normalize(",", true));
+        assertEquals("1", PendingRimeSymbols.normalize("1", false));
+        assertEquals("＠", PendingRimeSymbols.normalize("@", false));
+        assertEquals("＄", PendingRimeSymbols.normalize("$", false));
+        assertEquals("（", PendingRimeSymbols.normalize("(", false));
+        assertEquals("）", PendingRimeSymbols.normalize(")", false));
+        assertEquals("＂", PendingRimeSymbols.normalize("\"", false));
+        assertEquals("＇", PendingRimeSymbols.normalize("'", false));
+        assertEquals("：", PendingRimeSymbols.normalize(":", false));
+        assertEquals("；", PendingRimeSymbols.normalize(";", false));
+        assertEquals("！", PendingRimeSymbols.normalize("!", false));
+        assertEquals("？", PendingRimeSymbols.normalize("?", false));
         assertEquals("，", PendingRimeSymbols.normalize(",", false));
         assertEquals("。", PendingRimeSymbols.normalize(".", false));
-        assertEquals("?", PendingRimeSymbols.normalize("?", false));
+        assertEquals("［", PendingRimeSymbols.normalize("[", false));
+        assertEquals("］", PendingRimeSymbols.normalize("]", false));
+        assertEquals("…", PendingRimeSymbols.normalize("…", false));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> PendingRimeSymbols.normalize("a", true));

@@ -3440,6 +3440,22 @@ OpenTypeless 后长按独立打开 picker。结束时模拟器保持 LatinIME、
 
 ---
 
+## 35A. KBD-015 快捷符号语言状态跟进
+
+- 领域测试锁定固定标点表：数字和既有 Unicode 符号保持不变，常用 ASCII 标点在中文模式转换为单一全角 scalar，
+  非法字母/多字符输入仍 fail closed。
+- architecture **272/272 PASS**：Latin capability、符号分页、字段专用布局、Rime bounded suffix 与单次 callback
+  门禁同步覆盖 mode-derived symbol，未新增 editor writer。
+- Debug JVM **1085/1085 PASS**；Release Lint、Debug/unsigned Release/app AndroidTest APK 均构建成功。
+- API35 ARM64 emulator 的 `LatinKeyboardLayoutInstrumentedTest` **17/17 PASS**：Rime/中时键帽 `＠/？`、底栏
+  `，/。`、长按与符号页输出一致，切回 Latin/EN 后恢复 ASCII。
+- Xiaomi 设备本轮未连接，安装、触控和 OEM 窗口表现为 **NOT RUN**，不以模拟器结果冒充真机验收。
+
+完整范围、命令与回滚见
+[KBD-015 标点状态跟进报告](../2026-08-27-kbd-015-punctuation-mode.md)。
+
+---
+
 ## 36. RIM-001 RimeInputEngine 领域契约验收
 
 持续门禁包含：activate/deactivate/process/snapshot/candidate page/selection 精确 surface；闭合 lifecycle/process/failure

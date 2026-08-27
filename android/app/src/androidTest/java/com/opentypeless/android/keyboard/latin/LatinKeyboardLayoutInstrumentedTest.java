@@ -231,6 +231,37 @@ public final class LatinKeyboardLayoutInstrumentedTest {
     }
 
     @Test
+    public void quickSymbolsFollowChineseAndEnglishEngineSelection() {
+        onMain(() -> {
+            Harness harness = new Harness();
+            LatinKeyboardLayout layout = harness.layout;
+            java.util.EnumSet<KeyboardEngineSelection.Engine> engines =
+                    java.util.EnumSet.allOf(KeyboardEngineSelection.Engine.class);
+
+            layout.setEngineSelection(KeyboardEngineSelection.of(
+                    KeyboardEngineSelection.Engine.RIME, engines, 2L));
+            assertEquals("＠\na", layout.letterButton('a').getText().toString());
+            assertEquals("？\nm", layout.letterButton('m').getText().toString());
+            assertEquals("，", layout.commaButton().getText().toString());
+            assertEquals("。", layout.periodButton().getText().toString());
+            assertTrue(layout.letterButton('a').performLongClick());
+            flickDown(layout.letterButton('m'), dp(layout.root().getContext(), 24));
+            assertTrue(layout.commaButton().performClick());
+            assertTrue(layout.periodButton().performClick());
+            layout.symbolsToggleButton().performClick();
+            assertEquals("？", layout.symbolButton("?").getText().toString());
+            assertTrue(layout.symbolButton("?").performClick());
+            assertEquals(List.of("＠", "？", "，", "。", "？"), harness.inserted);
+
+            layout.setEngineSelection(KeyboardEngineSelection.of(
+                    KeyboardEngineSelection.Engine.LATIN, engines, 3L));
+            assertEquals("@\na", layout.letterButton('a').getText().toString());
+            assertEquals(",", layout.commaButton().getText().toString());
+            assertEquals(".", layout.periodButton().getText().toString());
+        });
+    }
+
+    @Test
     public void horizontalDragAndCancelledFlickDoNotTypeLetterOrSymbol() {
         onMain(() -> {
             Harness harness = new Harness();
