@@ -206,7 +206,7 @@ public final class NativeRimeInputEngine implements RimeInputEngine {
                     asciiInput.append((char) codePoint);
                     nativeState = session.processAscii(asciiInput.toString());
                     String committed = session.takePendingCommit();
-                    if (committed != null) return completeNativeCommit(committed);
+                    if (committed != null) return completeCompositionCommit(committed);
                 }
                 case BACKSPACE -> {
                     if (asciiInput.length() == 0) return new StateReady(state);
@@ -220,7 +220,10 @@ public final class NativeRimeInputEngine implements RimeInputEngine {
                     nativeState = session.resetComposition();
                 }
                 case ENTER -> {
-                    return rejected(FailureKind.POLICY_DENIED);
+                    if (asciiInput.length() == 0) {
+                        return rejected(FailureKind.POLICY_DENIED);
+                    }
+                    return completeCompositionCommit(asciiInput.toString());
                 }
                 default -> throw new IllegalStateException("unhandled key kind");
             }
@@ -270,7 +273,7 @@ public final class NativeRimeInputEngine implements RimeInputEngine {
                 state = RimeEngineSnapshot.inactive();
                 return rejected(FailureKind.INVALID_OUTPUT);
             }
-            return completeNativeCommit(committed);
+            return completeCompositionCommit(committed);
         } catch (Exception | LinkageError failure) {
             closeSession();
             state = RimeEngineSnapshot.inactive();
@@ -394,12 +397,13 @@ public final class NativeRimeInputEngine implements RimeInputEngine {
         return new Rejected(failure);
     }
 
-    private ProcessResult completeNativeCommit(String text) throws Exception {
+    private ProcessResult completeCompositionCommit(String text) throws Exception {
         String committed = RimeEngineSnapshot.requireBoundedText(text, false, "commit text");
-        // Any native commit ends this exact composition, whether it came from an explicit
-        // candidate selection or from schema-driven fixed-length auto selection. Destroy the
-        // native session before copying the local recovery point. Full sync_user_data remains an
-        // explicit maintenance operation and never blocks every word on the keyboard hot path.
+        // Any accepted composition commit ends this exact lease, whether it came from an explicit
+        // candidate selection, schema-driven fixed-length auto selection, or Enter accepting the
+        // raw ASCII preedit. Destroy the native session before copying the local recovery point.
+        // Full sync_user_data remains an explicit maintenance operation and never blocks every word
+        // on the keyboard hot path.
         Session committedSession = Objects.requireNonNull(session, "active Rime session");
         committedSession.close();
         session = null;

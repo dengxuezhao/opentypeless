@@ -882,6 +882,15 @@ activation/deactivation 与 preedit 均携带 editor generation 和 coordination
 ETM 1/1；模拟器 system-selected IME 外部真实触摸另通过 Latin `a`、切中文、`an -> ani -> an`。小米 ADB 触摸在聚焦
 普通字段前即被 HyperOS 拒绝，故不虚构系统触摸 PASS；默认 PangIME 已恢复。RIM-005 候选选择仍是下一个个人可用 P0。
 
+**RIM-004 回车英文跟进（2026-08-27，`DONE`）：** 非空 Rime ASCII preedit 的 Enter 现在返回绑定原 generation/revision
+的 exact raw-text `CommitReady`，不再拒绝按键或误选中文候选；空 composition 的 Enter 仍由既有语义 action/newline 路径
+处理。native session、UserDB checkpoint 和 lease 只结束一次，编辑器写入继续只经 Composition/ETM。最终 clean graph
+191 tasks、120 script tests、272 architecture tests、1199 XML tests、Release Lint 与五 APK 精确资源扫描全部 PASS；API35
+arm64 emulator 用最终 clean APK 通过 actual librime 1/1 和 system-selected IME
+`n -> ni -> backspace -> n -> ni -> Enter` 1/1，并确认最终 `ni` 无 composing span。测试合成包/UserDB 已清除且恢复
+LatinIME；本轮没有连接 Xiaomi，不声明小米真机 PASS。完整证据见
+[RIM-004 raw ASCII Enter 跟进报告](../2026-08-27-rim-004-raw-ascii-enter.md)。
+
 **RIM-005 完成说明（2026-08-16，`DONE`）：** `CandidatePage` 现以 5 项一页投影 native 有界候选快照，翻页和点击
 同时绑定 editor generation、page revision、candidate ID、index 与 expected text。一次合法点击只调用一次 native select，
 并经同一 Rime composition/ETM 完成一次提交；重复、旧页、目标漂移或策略变化均零写。最终 clean graph 186 tasks PASS，

@@ -3509,6 +3509,14 @@ architecture-gate 114/114、Debug/Release compiled 2/2 与 strict offline 191-ta
 
 本任务只关闭按键、退格、中英切换和 preedit。候选栏的真实页/点击/翻页/一次提交仍必须由 RIM-005 单独验收。
 
+2026-08-27 回车英文跟进：非空 Rime ASCII preedit 的 Enter 必须提交原始字母串，不能选择候选、丢弃 preedit 或直接
+执行换行；空 composition 仍走既有 editor action/newline。最终 clean graph **191 tasks PASS**，120 script tests、272
+architecture tests、1199 XML tests、Release Lint 与五 APK 精确扫描均 PASS。API35 arm64 emulator 以最终 clean APK
+通过 actual librime **1/1**，并在 system-selected IME 中完成
+`n -> ni -> backspace -> n -> ni -> Enter` **1/1**，宿主读回 `ni` 且 composing span 为 `-1`。测试包/UserDB 清除后
+恢复 LatinIME；本轮无 Xiaomi 连接，真机项 **NOT RUN**。精确哈希和命令见
+[RIM-004 raw ASCII Enter 跟进报告](../2026-08-27-rim-004-raw-ascii-enter.md)。
+
 ---
 
 ## 40. RIM-005 候选分页与选择验收

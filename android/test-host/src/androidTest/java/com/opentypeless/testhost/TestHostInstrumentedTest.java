@@ -24,6 +24,7 @@ import android.text.InputType;
 import android.view.ViewTreeObserver;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
+import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputConnection;
@@ -591,45 +592,45 @@ public final class TestHostInstrumentedTest {
                 | AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS;
         automation.setServiceInfo(serviceInfo);
         focusField(R.id.host_plain_text);
-
-        clickImeNode(automation, expectedPackage, Set.of("a"), true);
-        assertPlainTextEventually("a", automation, expectedPackage);
-        EditText plain = activity.findViewById(R.id.host_plain_text);
-        instrumentation.runOnMainSync(() -> plain.setText(""));
-        focusField(R.id.host_plain_text);
-        awaitImeLabel(
-                automation,
-                expectedPackage,
-                Set.of(
-                        "Latin input active; switch to Chinese input",
-                        "当前为拉丁输入；切换到中文输入"));
-        clickImeNode(
-                automation,
-                expectedPackage,
-                Set.of(
-                        "Latin input active; switch to Chinese input",
-                        "当前为拉丁输入；切换到中文输入"),
-                false);
-        awaitImeLabel(
-                automation,
-                expectedPackage,
-                Set.of(
-                        "Chinese input active; switch to Latin input",
-                        "当前为中文输入；切换到拉丁输入"));
-        clickImeNode(automation, expectedPackage, Set.of("n"), true);
+        activateImeNode(automation, expectedPackage, Set.of(
+                "Open the QWERTY keyboard", "打开 QWERTY 键盘"), false);
+        Set<String> latinActive = Set.of(
+                "Latin input active; switch to Chinese input",
+                "当前为拉丁输入；切换到中文输入");
+        Set<String> rimeActive = Set.of(
+                "Chinese input active; switch to Latin input",
+                "当前为中文输入；切换到拉丁输入");
+        Set<String> eitherEngine = new TreeSet<>();
+        eitherEngine.addAll(latinActive);
+        eitherEngine.addAll(rimeActive);
+        awaitImeLabel(automation, expectedPackage, eitherEngine);
+        if (inputMethodLabels(automation, expectedPackage).stream()
+                .anyMatch(latinActive::contains)) {
+            activateImeNode(automation, expectedPackage, latinActive, false);
+        }
+        awaitImeLabel(automation, expectedPackage, rimeActive);
+        activateImeNode(automation, expectedPackage, Set.of(
+                "n; touch and hold for !", "n；长按输入 !"), false);
         assertPlainTextEventually("n", automation, expectedPackage);
-        clickImeNode(automation, expectedPackage, Set.of("i"), true);
+        activateImeNode(automation, expectedPackage, Set.of(
+                "i; touch and hold for 8", "i；长按输入 8"), false);
         assertPlainTextEventually("ni", automation, expectedPackage);
-        clickImeNode(automation, expectedPackage, Set.of("Delete", "删除"), false);
+        activateImeNode(automation, expectedPackage, Set.of("Delete", "删除"), false);
         assertPlainTextEventually("n", automation, expectedPackage);
-        clickImeNode(
+        activateImeNode(automation, expectedPackage, Set.of(
+                "i; touch and hold for 8", "i；长按输入 8"), false);
+        assertPlainTextEventually("ni", automation, expectedPackage);
+        activateImeNode(
                 automation,
                 expectedPackage,
                 Set.of(
-                        "Chinese input active; switch to Latin input",
-                        "当前为中文输入；切换到拉丁输入"),
+                        "Enter or perform the editor action",
+                        "换行或执行编辑器操作"),
                 false);
-        assertPlainTextEventually("n", automation, expectedPackage);
+        assertPlainTextEventually("ni", automation, expectedPackage);
+        assertNoComposingSpanEventually(R.id.host_plain_text);
+        activateImeNode(automation, expectedPackage, rimeActive, false);
+        assertPlainTextEventually("ni", automation, expectedPackage);
     }
 
     @Test
@@ -720,6 +721,20 @@ public final class TestHostInstrumentedTest {
                 actual.get());
     }
 
+    private void assertNoComposingSpanEventually(int fieldId) {
+        EditText field = activity.findViewById(fieldId);
+        long deadline = SystemClock.uptimeMillis() + 8_000L;
+        AtomicReference<Integer> composingStart = new AtomicReference<>();
+        do {
+            instrumentation.runOnMainSync(() -> composingStart.set(
+                    BaseInputConnection.getComposingSpanStart(field.getText())));
+            if (composingStart.get() == -1) return;
+            SystemClock.sleep(100L);
+        } while (SystemClock.uptimeMillis() < deadline);
+        assertEquals("Rime raw ASCII remained a composing span", -1,
+                (int) composingStart.get());
+    }
+
     private void awaitImeLabel(
             UiAutomation automation, String expectedPackage, Set<String> labels) {
         long deadline = SystemClock.uptimeMillis() + 8_000L;
@@ -786,7 +801,8 @@ public final class TestHostInstrumentedTest {
             }
             SystemClock.sleep(100L);
         } while (SystemClock.uptimeMillis() < deadline);
-        assertTrue("input method node not found: " + labels, false);
+        assertTrue("input method node not found: " + labels
+                + "; observed=" + inputMethodLabels(automation, expectedPackage), false);
     }
 
     /** Deterministic contract activation; external ADB touch is recorded separately. */

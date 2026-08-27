@@ -153,6 +153,7 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "session.setOption(option,runtimeConfig.optionValue(option))",
         "request.learningMode()!=LearningMode.ENABLED",
         "caseBACKSPACE", "caseESCAPE", "caseENTER",
+        "returncompleteCompositionCommit(asciiInput.toString())",
         "returnrejected(FailureKind.POLICY_DENIED)",
         "CANDIDATES_PER_PAGE=5",
         "StringselectCandidate(intindex);",
@@ -353,7 +354,8 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         ))
     for token in (
         "asciiAndBackspaceProduceMonotonicBoundedPreedit",
-        "unsupportedUnicodeEnterAndUnboundCandidateFailClosed",
+        "unsupportedUnicodeEmptyEnterAndUnboundCandidateFailClosed",
+        "enterCommitsExactRawAsciiWithoutSelectingCandidate",
         "candidatePagesSelectExactAbsoluteIndexOnceAndRejectReplay",
         "fixedLengthNativeAutoCommitReturnsCommitAndCreatesRecoveryPoint",
         "staleCandidateIdentityNeverCallsNativeSelection",

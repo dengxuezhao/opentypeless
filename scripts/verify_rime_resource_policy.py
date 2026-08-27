@@ -32,7 +32,7 @@ POLICY_REL = Path("third_party/rime/resource-policy.v1.json")
 IMPORT_SCHEMA_REL = Path("protocol/opentypeless-rime-import-manifest-v1.schema.json")
 ROUTE_A_SERIES_REL = Path("third_party/keyboard/route_a/patches/series.v1.json")
 
-TRUSTED_POLICY_CANONICAL_SHA256 = "55c3a547180d5caefd1b785b73320871e337955feacccc3a5a403d5ecb3ce79b"
+TRUSTED_POLICY_CANONICAL_SHA256 = "ab5d0c0ae5f8683187be7709eb4dfac6b8ede8d3c695569463de858cdc39a804"
 TRUSTED_IMPORT_SCHEMA_CANONICAL_SHA256 = "5d466e6bf38959deb47fc15bd946e3429e559ad4342367b9435ce1d9330f30cf"
 
 HEX40 = re.compile(r"[0-9a-f]{40}")
@@ -465,8 +465,8 @@ def _validate_policy(value: dict[str, object]) -> Contract:
         ))
 
     raw_expectations = value["artifact_expectations"]
-    if not isinstance(raw_expectations, list) or len(raw_expectations) != 94:
-        raise PolicyError("artifact expectations must contain the exact ninety-four reviewed APKs")
+    if not isinstance(raw_expectations, list) or len(raw_expectations) != 99:
+        raise PolicyError("artifact expectations must contain the exact ninety-nine reviewed APKs")
     expectation_keys = {
         "sha256", "profiles", "required_synthetic_fixture_ids", "required_native_engine_ids",
     }

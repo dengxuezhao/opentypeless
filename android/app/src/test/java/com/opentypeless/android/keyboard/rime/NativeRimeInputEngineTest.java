@@ -50,7 +50,7 @@ public final class NativeRimeInputEngineTest {
     }
 
     @Test
-    public void unsupportedUnicodeEnterAndUnboundCandidateFailClosed() {
+    public void unsupportedUnicodeEmptyEnterAndUnboundCandidateFailClosed() {
         NativeRimeInputEngine disabled = engine(new ArrayList<>());
         assertRejected(disabled.activate(new RimeInputEngine.Activation(
                 3L, 5L, RimeInputEngine.LearningMode.DISABLED)),
@@ -68,6 +68,34 @@ public final class NativeRimeInputEngineTest {
         assertRejected(engine.selectCandidate(nullSelection()),
                 RimeInputEngine.FailureKind.STALE_COORDINATION_GENERATION);
         assertFalse(engine.snapshot() instanceof RimeInputEngine.Rejected);
+    }
+
+    @Test
+    public void enterCommitsExactRawAsciiWithoutSelectingCandidate() {
+        ArrayList<String> events = new ArrayList<>();
+        NativeRimeInputEngine engine = new NativeRimeInputEngine(
+                new File("runtime"), RimeRuntimeConfig.defaults("local"),
+                () -> lease(events, true, false),
+                (shared, user, schema) -> session(events));
+        assertTrue(engine.activate(new RimeInputEngine.Activation(
+                3L, 5L, RimeInputEngine.LearningMode.ENABLED))
+                instanceof RimeInputEngine.LifecycleApplied);
+        state(engine.process(request('n')));
+        state(engine.process(request('i')));
+        events.clear();
+
+        RimeInputEngine.ProcessResult result = engine.process(new RimeInputEngine.ProcessRequest(
+                3L, 5L, RimeInputEngine.Key.enter()));
+
+        assertTrue(result instanceof RimeInputEngine.CommitReady);
+        RimeInputEngine.CommitReady commit = (RimeInputEngine.CommitReady) result;
+        assertEquals("ni", commit.commit().text());
+        assertEquals("", commit.snapshot().preedit());
+        assertTrue(commit.snapshot().candidatePage().isEmpty());
+        assertEquals(List.of("session-close", "checkpoint", "lease-close"), events);
+        assertRejected(engine.process(new RimeInputEngine.ProcessRequest(
+                3L, 5L, RimeInputEngine.Key.enter())),
+                RimeInputEngine.FailureKind.INACTIVE);
     }
 
     @Test

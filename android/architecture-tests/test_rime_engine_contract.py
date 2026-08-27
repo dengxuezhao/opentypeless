@@ -133,6 +133,14 @@ class RimeEngineContractTest(unittest.TestCase):
         )
         self.assertIn("RIM005_NATIVE_ONE_SHOT", self.rules())
 
+    def test_rejects_enter_that_drops_raw_ascii_composition(self) -> None:
+        self.mutate(
+            NATIVE,
+            "return completeCompositionCommit(asciiInput.toString());",
+            "return rejected(FailureKind.POLICY_DENIED);",
+        )
+        self.assertIn("RIM004_005_NATIVE_CONTRACT", self.rules())
+
     def test_rejects_candidate_service_without_exact_text_binding(self) -> None:
         self.mutate(
             SERVICE,
