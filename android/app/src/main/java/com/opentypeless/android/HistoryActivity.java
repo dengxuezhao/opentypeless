@@ -2,7 +2,8 @@ package com.opentypeless.android;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.graphics.Color;
+import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
@@ -18,6 +19,7 @@ import android.widget.Toast;
 
 import com.opentypeless.android.data.HistoryEntry;
 import com.opentypeless.android.data.PersonalizationStore;
+import com.opentypeless.android.editor.CommitRecord;
 import com.opentypeless.android.personalization.TeachCorrectionResolver;
 import com.opentypeless.android.settings.SettingsRepository;
 
@@ -52,6 +54,18 @@ public final class HistoryActivity extends Activity {
     private EditText dialogReplacement;
     private EditText dialogScope;
 
+    /** Creates the only direct-current-commit Teach launch used by the IME. */
+    public static Intent createTeachIntent(
+            Context context, CommitRecord record, long historyId) {
+        HistoryEntry current = TeachCorrectionResolver.resolve(null, record);
+        if (current == null) return null;
+        return new Intent(context, HistoryActivity.class)
+                .putExtra(EXTRA_HISTORY_ID, historyId)
+                .putExtra(EXTRA_RAW_TEXT, current.rawText())
+                .putExtra(EXTRA_FINAL_TEXT, current.finalText())
+                .putExtra(EXTRA_APP_SCOPE, current.appPackage());
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -83,22 +97,35 @@ public final class HistoryActivity extends Activity {
     }
 
     private View buildContent() {
+        LinearLayout page = verticalLayout();
+        AppVisualSystem.stylePage(this, page);
+        SystemBarInsets.apply(page);
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         LinearLayout root = verticalLayout();
         int padding = dp(20);
         root.setPadding(padding, padding, padding, padding);
+        AppVisualSystem.stylePage(this, root);
         scroll.addView(root);
 
         root.addView(title(R.string.history_title));
         root.addView(note(R.string.history_intro));
+        LinearLayout managementCard = card();
         historyDisabledNote = warning(R.string.history_disabled_note);
-        root.addView(historyDisabledNote);
-        root.addView(button(R.string.clear_history, ignored -> confirmClearHistory()));
+        managementCard.addView(historyDisabledNote);
+        managementCard.addView(button(R.string.clear_history, ignored -> confirmClearHistory()));
+        root.addView(managementCard);
         historyList = verticalLayout();
         historyList.setPadding(0, dp(12), 0, 0);
         root.addView(historyList, matchWrap());
-        return scroll;
+        page.addView(scroll, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f));
+        page.addView(
+                AppVisualSystem.bottomNavigation(this, AppVisualSystem.Destination.HISTORY),
+                AppVisualSystem.matchWrap());
+        return page;
     }
 
     private void refreshHistory() {
@@ -133,7 +160,7 @@ public final class HistoryActivity extends Activity {
         historyOffset += entries.size();
         if (entries.size() == PAGE_SIZE) {
             Button more = button(R.string.load_more, ignored -> {
-                historyList.removeView((View) ignored);
+                historyList.removeView(ignored);
                 appendHistoryPage(generation, false);
             });
             historyList.addView(more);
@@ -199,21 +226,26 @@ public final class HistoryActivity extends Activity {
 
         card.addView(transcriptBlock(R.string.raw_transcript_label, limited(entry.rawText(), 800)));
         card.addView(transcriptBlock(R.string.final_transcript_label, limited(entry.finalText(), 800)));
-        LinearLayout actions = horizontalLayout();
+        if (!entry.appliedRules().isBlank()) {
+            card.addView(transcriptBlock(
+                    R.string.applied_personal_rules_label,
+                    limited(entry.appliedRules(), 800)));
+        }
+        LinearLayout actions = AppVisualSystem.actionGroup(this);
         Button view = button(R.string.view_full_history_entry, ignored -> showFullEntry(entry));
         view.setContentDescription(
                 getString(R.string.view_full_history_entry) + ": " + limited(entry.rawText(), 60));
-        actions.addView(view, weighted());
+        actions.addView(view, AppVisualSystem.actionParams(this));
         Button save = button(R.string.save_correction, ignored -> showCorrectionDialog(entry));
         save.setContentDescription(
                 getString(R.string.save_correction) + ": " + limited(entry.rawText(), 60));
-        actions.addView(save, weighted());
+        actions.addView(save, AppVisualSystem.actionParams(this));
         Button delete = button(
                 R.string.delete_history_entry,
                 ignored -> confirmDeleteHistory(entry));
         delete.setContentDescription(
                 getString(R.string.delete_history_entry) + ": " + limited(entry.rawText(), 60));
-        actions.addView(delete, weighted());
+        actions.addView(delete, AppVisualSystem.actionParams(this));
         card.addView(actions, matchWrap());
         return card;
     }
@@ -224,6 +256,11 @@ public final class HistoryActivity extends Activity {
         content.setPadding(padding, padding, padding, padding);
         content.addView(transcriptBlock(R.string.raw_transcript_label, entry.rawText()));
         content.addView(transcriptBlock(R.string.final_transcript_label, entry.finalText()));
+        if (!entry.appliedRules().isBlank()) {
+            content.addView(transcriptBlock(
+                    R.string.applied_personal_rules_label,
+                    entry.appliedRules()));
+        }
         ScrollView scroll = new ScrollView(this);
         scroll.addView(content);
         new AlertDialog.Builder(this)
@@ -399,48 +436,33 @@ public final class HistoryActivity extends Activity {
     }
 
     private LinearLayout card() {
-        LinearLayout card = verticalLayout();
-        card.setPadding(dp(12), dp(10), dp(12), dp(10));
-        card.setBackgroundColor(Color.rgb(244, 247, 246));
-        LinearLayout.LayoutParams parameters = matchWrap();
-        parameters.setMargins(0, dp(4), 0, dp(8));
-        card.setLayoutParams(parameters);
+        LinearLayout card = AppVisualSystem.card(this);
+        card.setLayoutParams(AppVisualSystem.cardParams(this));
         return card;
     }
 
     private Button button(int labelResource, View.OnClickListener listener) {
-        Button button = new Button(this);
-        button.setText(labelResource);
-        button.setAllCaps(false);
-        button.setMinHeight(dp(48));
-        button.setContentDescription(getString(labelResource));
-        button.setOnClickListener(listener);
-        return button;
+        return AppVisualSystem.secondaryButton(this, labelResource, listener);
     }
 
     private TextView title(int resource) {
-        TextView title = text(getString(resource), 26, true);
-        heading(title);
-        return title;
+        return AppVisualSystem.title(this, getString(resource));
     }
 
     private TextView note(int resource) {
-        TextView note = text(getString(resource), 14, false);
-        note.setTextColor(Color.DKGRAY);
-        note.setPadding(0, dp(8), 0, dp(12));
-        return note;
+        return AppVisualSystem.note(this, getString(resource));
     }
 
     private TextView warning(int resource) {
         TextView warning = text(getString(resource), 14, false);
-        warning.setTextColor(Color.rgb(145, 88, 0));
+        warning.setTextColor(getColor(R.color.ime_warning));
         warning.setPadding(0, dp(4), 0, dp(8));
         return warning;
     }
 
     private TextView empty(int resource) {
         TextView empty = text(getString(resource), 14, false);
-        empty.setTextColor(Color.DKGRAY);
+        empty.setTextColor(getColor(R.color.ime_on_surface_variant));
         empty.setMinHeight(dp(48));
         empty.setGravity(Gravity.CENTER_VERTICAL);
         return empty;
@@ -448,7 +470,7 @@ public final class HistoryActivity extends Activity {
 
     private TextView detail(String value) {
         TextView detail = text(value, 13, false);
-        detail.setTextColor(Color.DKGRAY);
+        detail.setTextColor(getColor(R.color.ime_on_surface_variant));
         detail.setPadding(0, dp(4), 0, dp(4));
         return detail;
     }

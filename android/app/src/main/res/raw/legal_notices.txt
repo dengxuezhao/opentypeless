@@ -1,4 +1,4 @@
-OpenTypeless Android 0.2
+OpenTypeless Android 0.3
 
 MIT License
 
@@ -49,7 +49,7 @@ Source: https://github.com/JetBrains/kotlin
 Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
 MIT License: https://opensource.org/license/mit
 
-Optional downloadable model
+Optional downloadable models
 
 OpenTypeless does not bundle model weights in the APK. If the user explicitly
 downloads the quality offline model, the app retrieves the pinned SenseVoice
@@ -61,6 +61,31 @@ FunASR Model License. The download UI discloses the model name, size, revision,
 license family, and storage behavior before consent.
 Model source: https://github.com/FunAudioLLM/SenseVoice
 Model license: https://github.com/modelscope/FunASR#license
+
+If the user adds offline live text, the app separately retrieves the pinned
+Streaming Paraformer bilingual zh/en INT8 export from revision:
+https://huggingface.co/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/tree/8e40c43232a1c5c66c82111efc5820d3accca11b
+
+That repository declares Apache License 2.0 and attributes the converted source
+model to ModelScope damo/speech_paraformer_asr_nat-zh-cn-16k-common-vocab8404-online.
+The encoder, decoder, and token files are independently size- and SHA-256-pinned.
+Model source: https://www.modelscope.cn/models/damo/speech_paraformer_asr_nat-zh-cn-16k-common-vocab8404-online/summary
+Conversion repository: https://huggingface.co/csukuangfj/streaming-paraformer-zh
+
+If the user adds semantic punctuation, the app separately retrieves the exact
+75,519,198-byte CT-Transformer zh/en INT8 model published in the official
+sherpa-onnx punctuation-models release. The transport mirror is revision-pinned;
+the installed model must match SHA-256
+65a3fb9f5ad7bfb96bf69e0dc4481df97f6ee60513c1d94ce981ba6effd524b1.
+Official converted model and instructions:
+https://k2-fsa.github.io/sherpa/onnx/punctuation/pretrained_models.html
+Source model:
+https://modelscope.cn/models/iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch/summary
+Pinned transport revision:
+https://huggingface.co/lorneluo/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8/tree/fc2be466e3c11927b306a31cdee23c9c38da44cc
+The source model declares Apache License 2.0. OpenTypeless runs punctuation in
+a private text-only process and accepts its output only when lexical content,
+paragraphs, and protected literals remain unchanged.
 
 Android speech selected as on-device or system service is provided by software
 installed on the device and has its own terms and privacy behavior.
@@ -76,8 +101,8 @@ https://github.com/dengxuezhao/opentypeless
 
 -----------------------------------------------------------------------
 FULL APACHE LICENSE 2.0 TEXT
-Applies to sherpa-onnx, the Kotlin standard library, and the Apache-licensed
-native build dependencies listed above.
+Applies to sherpa-onnx, the Kotlin standard library, the optional Streaming
+Paraformer repository, and the Apache-licensed native build dependencies listed above.
 
 Apache License
                            Version 2.0, January 2004
@@ -417,3 +442,48 @@ FunASR 模型开源协议
 如果您对本协议有任何问题或意见，请联系我们。
 
 版权所有© [2023-2028] [阿里巴巴集团]。保留所有权利。
+Unicode Emoji 15.1 data subset
+==============================
+
+OpenTypeless includes a manually curated 168-sequence subset of Unicode Emoji 15.1 data for its
+offline Emoji picker. No Unicode font or glyph artwork is bundled.
+
+UNICODE LICENSE V3
+
+COPYRIGHT AND PERMISSION NOTICE
+
+Copyright © 1991-2026 Unicode, Inc.
+
+NOTICE TO USER: Carefully read the following legal agreement. BY
+DOWNLOADING, INSTALLING, COPYING OR OTHERWISE USING DATA FILES, AND/OR
+SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE TO BE BOUND BY, ALL OF THE
+TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO NOT
+DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of data files and any associated documentation (the "Data Files") or
+software and any associated documentation (the "Software") to deal in the
+Data Files or Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, and/or sell
+copies of the Data Files or Software, and to permit persons to whom the
+Data Files or Software are furnished to do so, provided that either (a)
+this copyright and permission notice appear with all copies of the Data
+Files or Software, or (b) this copyright and permission notice appear in
+associated Documentation.
+
+THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+THIRD PARTY RIGHTS.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE
+BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES,
+OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+FILES OR SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall
+not be used in advertising or otherwise to promote the sale, use or other
+dealings in these Data Files or Software without prior written
+authorization of the copyright holder.

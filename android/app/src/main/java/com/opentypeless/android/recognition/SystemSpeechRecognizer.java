@@ -3,6 +3,7 @@ package com.opentypeless.android.recognition;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -27,6 +28,7 @@ public final class SystemSpeechRecognizer {
         void onReady();
         default void onBeginningOfSpeech() {}
         void onPartial(String text);
+        default void onEndOfSpeech() {}
         void onFinal(String text);
         void onError(int errorCode, String message);
     }
@@ -84,20 +86,62 @@ public final class SystemSpeechRecognizer {
             AppSettings settings,
             PersonalizationSnapshot snapshot,
             Callback callback) {
+        start(
+                settings,
+                snapshot,
+                callback,
+                RecognitionTimeoutPolicy.milliseconds(settings.maxRecordingSeconds()));
+    }
+
+    public void start(
+            AppSettings settings,
+            PersonalizationSnapshot snapshot,
+            Callback callback,
+            long timeoutMillis) {
         long run = generation.next();
-        mainHandler.post(() -> startOnMain(run, settings, snapshot, callback));
+        long boundedTimeoutMillis = Math.max(1L, timeoutMillis);
+        mainHandler.post(() -> startOnMain(
+                run,
+                settings.recognitionBackend(),
+                SystemRecognitionIntentFactory.create(settings, snapshot),
+                callback,
+                boundedTimeoutMillis));
+    }
+
+    void start(
+            RecognitionBackend recognitionBackend,
+            String language,
+            int maxResults,
+            boolean partialResults,
+            List<String> biasingTerms,
+            Callback callback,
+            long timeoutMillis) {
+        long run = generation.next();
+        long boundedTimeoutMillis = Math.max(1L, timeoutMillis);
+        mainHandler.post(() -> startOnMain(
+                run,
+                recognitionBackend,
+                SystemRecognitionIntentFactory.create(
+                        recognitionBackend,
+                        language,
+                        partialResults,
+                        maxResults,
+                        biasingTerms),
+                callback,
+                boundedTimeoutMillis));
     }
 
     private void startOnMain(
             long run,
-            AppSettings settings,
-            PersonalizationSnapshot snapshot,
-            Callback callback) {
+            RecognitionBackend recognitionBackend,
+            Intent intent,
+            Callback callback,
+            long timeoutMillis) {
         if (!generation.isCurrent(run)) return;
         destroyRecognizer();
         if (!generation.isCurrent(run)) return;
         try {
-            if (settings.recognitionBackend() == RecognitionBackend.SYSTEM_ON_DEVICE) {
+            if (recognitionBackend == RecognitionBackend.SYSTEM_ON_DEVICE) {
                 if (!onDeviceAvailable(context)) {
                     failStart(
                             run,
@@ -107,7 +151,7 @@ public final class SystemSpeechRecognizer {
                     return;
                 }
                 recognizer = createOnDeviceRecognizer();
-            } else {
+            } else if (recognitionBackend == RecognitionBackend.SYSTEM_DEFAULT) {
                 if (!systemAvailable(context)) {
                     failStart(
                             run,
@@ -117,14 +161,20 @@ public final class SystemSpeechRecognizer {
                     return;
                 }
                 recognizer = SpeechRecognizer.createSpeechRecognizer(context);
+            } else {
+                failStart(
+                        run,
+                        callback,
+                        SpeechRecognizer.ERROR_CLIENT,
+                        "Android speech recognition requires a system backend");
+                return;
             }
             recognizer.setRecognitionListener(listener(run, callback));
             activeRun = run;
             activeCallback = callback;
-            android.content.Intent intent = SystemRecognitionIntentFactory.create(settings, snapshot);
             recordingWatchdog.arm(
                     run,
-                    RecognitionTimeoutPolicy.milliseconds(settings.maxRecordingSeconds()),
+                    timeoutMillis,
                     () -> stopForTimeout(run, callback));
             recognizer.startListening(intent);
         } catch (RuntimeException error) {
@@ -177,6 +227,7 @@ public final class SystemSpeechRecognizer {
             @Override
             public void onEndOfSpeech() {
                 if (!current(run) || awaitingTerminalRun == run) return;
+                callback.onEndOfSpeech();
                 awaitingTerminalRun = run;
                 recordingWatchdog.arm(
                         run,
@@ -215,22 +266,33 @@ public final class SystemSpeechRecognizer {
 
             @Override
             public void onPartialResults(Bundle partialResults) {
-                if (current(run)) {
-                    String text;
-                    try {
-                        text = firstResult(partialResults);
-                    } catch (IllegalArgumentException error) {
-                        if (finishCurrent(run)) {
-                            callback.onError(SpeechRecognizer.ERROR_CLIENT, error.getMessage());
-                        }
-                        return;
-                    }
-                    if (!text.isBlank()) callback.onPartial(text);
-                }
+                deliverPartial(run, callback, partialResults);
+            }
+
+            @Override
+            public void onSegmentResults(Bundle segmentResults) {
+                // API 33+ recognizers may surface an intermediate hypothesis as a segment even
+                // when their vendor implementation never invokes onPartialResults(). Treat it as
+                // replaceable preview text; the authoritative onResults callback still wins.
+                deliverPartial(run, callback, segmentResults);
             }
 
             @Override public void onEvent(int eventType, Bundle params) {}
         };
+    }
+
+    private void deliverPartial(long run, Callback callback, Bundle results) {
+        if (!current(run)) return;
+        String text;
+        try {
+            text = firstResult(results);
+        } catch (IllegalArgumentException error) {
+            if (finishCurrent(run)) {
+                callback.onError(SpeechRecognizer.ERROR_CLIENT, error.getMessage());
+            }
+            return;
+        }
+        if (!text.isBlank()) callback.onPartial(text);
     }
 
     private boolean current(long run) {

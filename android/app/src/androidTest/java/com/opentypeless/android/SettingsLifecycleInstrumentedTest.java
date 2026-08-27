@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import android.content.Context;
 import android.content.Intent;
 import android.widget.CheckBox;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
 
@@ -27,7 +28,7 @@ import java.lang.reflect.Field;
 @RunWith(AndroidJUnit4.class)
 public final class SettingsLifecycleInstrumentedTest {
     @Test
-    public void repositoryCommitsOrdinaryValuesAndBothEncryptedKeysTogether() {
+    public void repositoryCommitsOrdinaryValuesAndAllEncryptedKeysTogether() {
         Context context = ApplicationProvider.getApplicationContext();
         SettingsRepository repository = new SettingsRepository(context);
         AppSettings previous = repository.load();
@@ -36,6 +37,10 @@ public final class SettingsLifecycleInstrumentedTest {
                 "https://speech.example/v1",
                 "instrumented-stt-secret",
                 "speech-model",
+                "wss://dashscope.aliyuncs.com/api-ws/v1/inference",
+                "instrumented-streaming-secret",
+                "paraformer-realtime-v2",
+                "vocab-test",
                 "zh-CN",
                 ProcessingMode.SMART,
                 true,
@@ -63,6 +68,7 @@ public final class SettingsLifecycleInstrumentedTest {
     public void mainRotationKeepsEveryUnsavedValueIncludingSecretsAndAllowlist() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
+                field(activity, "recognitionAdvancedToggle", Button.class).performClick();
                 spinner(activity, "recognitionBackend").setSelection(0);
                 spinner(activity, "defaultMode").setSelection(3);
                 set(activity, "language", " zh-CN ");
@@ -70,9 +76,14 @@ public final class SettingsLifecycleInstrumentedTest {
                 set(activity, "sttBaseUrl", "https://draft-stt.example/v1/");
                 set(activity, "sttApiKey", "stt-unsaved-secret");
                 set(activity, "sttModel", "draft-speech-model");
+                set(activity, "streamingBaseUrl", "wss://dashscope.aliyuncs.com/api-ws/v1/inference");
+                set(activity, "streamingApiKey", "streaming-unsaved-secret");
+                set(activity, "streamingModel", "paraformer-realtime-v2");
+                set(activity, "streamingVocabularyId", "draft-vocabulary");
                 checked(activity, "standardSpeechEnabled", true);
                 set(activity, "standardSpeechCallers", "com.example.one\ncom.example.two");
                 checked(activity, "polishEnabled", true);
+                field(activity, "processingAdvancedToggle", Button.class).performClick();
                 set(activity, "llmBaseUrl", "https://draft-llm.example/v1/");
                 set(activity, "llmApiKey", "llm-unsaved-secret");
                 set(activity, "llmModel", "draft-text-model");
@@ -93,6 +104,10 @@ public final class SettingsLifecycleInstrumentedTest {
                 assertText(activity, "sttBaseUrl", "https://draft-stt.example/v1/");
                 assertText(activity, "sttApiKey", "stt-unsaved-secret");
                 assertText(activity, "sttModel", "draft-speech-model");
+                assertText(activity, "streamingBaseUrl", "wss://dashscope.aliyuncs.com/api-ws/v1/inference");
+                assertText(activity, "streamingApiKey", "streaming-unsaved-secret");
+                assertText(activity, "streamingModel", "paraformer-realtime-v2");
+                assertText(activity, "streamingVocabularyId", "draft-vocabulary");
                 assertTrue(checkbox(activity, "standardSpeechEnabled").isChecked());
                 assertText(activity, "standardSpeechCallers", "com.example.one\ncom.example.two");
                 assertTrue(checkbox(activity, "polishEnabled").isChecked());
