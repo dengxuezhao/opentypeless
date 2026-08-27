@@ -107,7 +107,8 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         '() -> listener.insertText(" ")',
         "state.pressShift(SystemClock.uptimeMillis())",
         "public void setInputEnabled(boolean enabled)",
-        "row.addView(spacer, new LinearLayout.LayoutParams(0, 0, weight))",
+        "new LinearLayout.LayoutParams(0, 0, weight)",
+        "row.addView(spacer, params)",
     )
     if (
         any(token not in layout for token in layout_tokens)
@@ -117,6 +118,31 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         violations.append(Violation(
             "KBD002_QWERTY_LAYOUT",
             "layout must expose exact alphabet/state and bounded callbacks",
+        ))
+
+    geometry_tokens = (
+        "LETTER_KEY_GRID_WEIGHT = 2f",
+        "ROW_INDENT_GRID_WEIGHT = 1f",
+        "FUNCTION_KEY_GRID_WEIGHT = 3f",
+        "addWeighted(row, button, LETTER_KEY_GRID_WEIGHT)",
+        "addGridFunctionKey(thirdRow, shiftButton, true)",
+        "addGridFunctionKey(thirdRow, deleteButton, false)",
+        "params.setMarginStart(dp(KEY_SIDE_MARGIN_DP))",
+    )
+    if any(token not in layout for token in geometry_tokens):
+        violations.append(Violation(
+            "KBD009_QWERTY_GEOMETRY",
+            "QWERTY rows must share the reviewed integer twenty-unit grid",
+        ))
+
+    panel_inset_tokens = (
+        "int baseBottomPadding = landscape ? 8 : 16",
+        "dp(baseBottomPadding) + navigationBottom",
+    )
+    if any(token not in service for token in panel_inset_tokens):
+        violations.append(Violation(
+            "KBD009_PANEL_INSET",
+            "portrait and landscape panel insets must remain explicit and navigation-safe",
         ))
 
     repeater = sources.get("BoundedDeleteRepeater.java", "")

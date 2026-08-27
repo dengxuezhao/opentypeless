@@ -3114,6 +3114,19 @@ Android 回归和系统选中 IME smoke 持续防止。
 
 ---
 
+## 30A. KBD-009 QWERTY 几何与面板底部安全区
+
+字母三行共享固定 20 单位水平网格：第一行 `10 × 2`，第二行 `1 + 9 × 2 + 1`，第三行
+`3 + 7 × 2 + 3`。键间距必须计入同一整数网格，使 A 位于 Q/W 中点，Z/X 分别与 S/D 中心对齐，Shift 与
+Delete 等宽；不得再用 `0.5 / 1 / 1.45` 三套浮点总权重让各行独立取整。按键仍保持 50dp 高、22sp 主字符和
+至少 48dp 触控目标，缩进 spacer 高度必须为 0。
+
+IME 面板的内容底部安全区在竖屏为 16dp、横屏为 8dp，并在此基础上叠加系统 navigation-bar bottom inset；
+不能用固定 padding 替换系统 inset，也不能把导航区算进键帽高度。布局只改变 View 几何，不新增 editor、网络、
+权限或持久化能力。
+
+---
+
 ## 31. KBD-003 数字、符号分页与长按
 
 `LatinKeyboardState` 在 KBD-002 Shift 状态之外增加闭合的 `LETTERS`、`SYMBOLS_PRIMARY`、

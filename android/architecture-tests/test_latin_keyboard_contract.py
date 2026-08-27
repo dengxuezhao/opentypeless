@@ -51,12 +51,34 @@ class LatinKeyboardContractTest(unittest.TestCase):
         path = self.root / LATIN_ROOT / "LatinKeyboardLayout.java"
         path.write_text(
             path.read_text(encoding="utf-8").replace(
-                "row.addView(spacer, new LinearLayout.LayoutParams(0, 0, weight));",
+                "row.addView(spacer, params);",
                 "addWeighted(row, spacer, weight);",
             ),
             encoding="utf-8",
         )
         self.assertIn("KBD002_QWERTY_LAYOUT", self.rules())
+
+    def test_rejects_fractional_qwerty_grid_drift(self) -> None:
+        path = self.root / LATIN_ROOT / "LatinKeyboardLayout.java"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "FUNCTION_KEY_GRID_WEIGHT = 3f",
+                "FUNCTION_KEY_GRID_WEIGHT = 1.45f",
+            ),
+            encoding="utf-8",
+        )
+        self.assertIn("KBD009_QWERTY_GEOMETRY", self.rules())
+
+    def test_rejects_missing_portrait_bottom_inset(self) -> None:
+        path = self.root / SERVICE
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "int baseBottomPadding = landscape ? 8 : 16;",
+                "int baseBottomPadding = landscape ? 8 : 10;",
+            ),
+            encoding="utf-8",
+        )
+        self.assertIn("KBD009_PANEL_INSET", self.rules())
 
     def test_rejects_double_dispatch_from_service(self) -> None:
         path = self.root / SERVICE

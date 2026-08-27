@@ -1127,15 +1127,17 @@ public final class OpenTypelessImeService extends InputMethodService
                 () -> KeyboardShellFrame.routeA(this),
                 () -> KeyboardShellFrame.legacyVoice(this));
         boolean routeACandidateBar = shellFrame.route() == KeyboardShellRoute.ROUTE_A;
+        int baseBottomPadding = landscape ? 8 : 16;
         LinearLayout root = shellFrame.root();
         root.setMinimumHeight(dp(landscape ? 190 : compactLayout ? 252 : 264));
-        root.setPadding(dp(8), dp(8), dp(8), dp(10));
+        root.setPadding(dp(8), dp(8), dp(8), dp(baseBottomPadding));
         root.setBackgroundResource(R.drawable.ime_panel_background);
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int navigationBottom = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
                     ? insets.getInsets(WindowInsets.Type.navigationBars()).bottom
                     : insets.getSystemWindowInsetBottom();
-            view.setPadding(dp(8), dp(8), dp(8), dp(10) + navigationBottom);
+            view.setPadding(
+                    dp(8), dp(8), dp(8), dp(baseBottomPadding) + navigationBottom);
             return insets;
         });
 

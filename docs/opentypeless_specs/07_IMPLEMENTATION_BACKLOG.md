@@ -1075,6 +1075,12 @@ Debug APK 已覆盖安装到小米 10 Ultra，语音页与 QWERTY 页真机截�
 切换为内部 `EN/中` 引擎键，避免伪装本地中文引擎可用。数字字段隐藏重复标点，邮箱/URL 快捷键去除与常驻句号的重复。
 所有文字输出继续走既有单一 keyboard callback 与 ETM；未复制第三方主题代码、资源或方案数据。
 
+**KBD-009 几何跟进（2026-08-27，代码完成/真机待验收）：** 三行 QWERTY 从各自的浮点总权重改为共享 20 单位
+整数网格，锁定 `10×2 / 1+9×2+1 / 3+7×2+3`，并把键间距计入同一网格；A 精确位于 Q/W 中点，Z/X
+与 S/D 对齐，Shift/Delete 等宽误差不超过像素取整。面板竖屏底部安全区从 10dp 提至 16dp，横屏为 8dp，二者
+继续叠加系统导航 inset。API35 ARM64 emulator 的 1080/2400 宽 View **18/18 PASS**，系统选中 IME 竖横屏均无
+按键截断；小米 15 未连接，原验收条件仍为 `NOT RUN`，因此 `KBD-009` 保持 `IN_PROGRESS`。
+
 **RIM-001 完成说明（2026-08-16，`DONE`）：** 新的纯 Java `RimeInputEngine` 与
 `RimeEngineSnapshot` 定义 activate/deactivate/process/snapshot/candidate page/selection 的闭合请求与结果；每项异步
 请求携带 editor generation 与 coordination revision，preedit/candidate/commit 有界且诊断脱敏。契约不依赖 Android、

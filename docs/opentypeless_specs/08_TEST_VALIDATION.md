@@ -3456,6 +3456,23 @@ OpenTypeless 后长按独立打开 picker。结束时模拟器保持 LatinIME、
 
 ---
 
+## 35B. KBD-009 QWERTY 几何跟进
+
+- hostile architecture gate 锁定 20 单位闭合网格、零高度缩进 spacer、竖屏 16dp/横屏 8dp 基础底部安全区，
+  以及 navigation-bar inset 的叠加；浮点第三行权重或退回 10dp 均稳定失败。
+- API35 ARM64 emulator 的 `LatinKeyboardLayoutInstrumentedTest` **18/18 PASS**，同时以 1080px 与 2400px
+  宽度验证 A=mid(Q,W)、Z=S、X=D、跨行字母等宽和 Shift/Delete 等宽取整边界。
+- `scripts/verify_android.sh preflight` **PASS**：120 script tests + 274 architecture tests；Debug JVM
+  **1085/1085**、Release Lint 与 Debug/unsigned Release/app AndroidTest APK build 全部 PASS。
+- 系统选中最终 Debug IME 后，竖屏 1080×2400 与横屏 2400×1080 都实际展开 QWERTY；四行连续、无键帽截断，
+  竖屏底栏相对旧版额外抬高 6dp，横屏保留紧凑 8dp 安全区。
+- 小米 15 未连接，横竖屏 OEM 窗口验收为 **NOT RUN**；代码切片完成，但 backlog 状态不冒充 `DONE`。
+
+完整范围、截图路径与回滚见
+[KBD-009 几何跟进报告](../2026-08-27-kbd-009-qwerty-grid-bottom-inset.md)。
+
+---
+
 ## 36. RIM-001 RimeInputEngine 领域契约验收
 
 持续门禁包含：activate/deactivate/process/snapshot/candidate page/selection 精确 surface；闭合 lifecycle/process/failure

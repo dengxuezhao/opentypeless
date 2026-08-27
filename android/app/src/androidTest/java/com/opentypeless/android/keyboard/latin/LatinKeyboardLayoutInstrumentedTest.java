@@ -359,7 +359,6 @@ public final class LatinKeyboardLayoutInstrumentedTest {
             LinearLayout bottomRow = row(harness.layout, 3);
             Button q = harness.layout.letterButton('q');
             Button a = harness.layout.letterButton('a');
-            Button z = harness.layout.letterButton('z');
 
             assertEquals(10, firstRow.getChildCount());
             assertEquals(11, secondRow.getChildCount()); // two indent spacers + 9 letters
@@ -378,13 +377,28 @@ public final class LatinKeyboardLayoutInstrumentedTest {
             assertFalse(q.getIncludeFontPadding());
             assertEquals(q.getHeight(), a.getHeight());
             assertTrue(q.getHeight() >= dp(root.getContext(), 48));
-            assertTrue(a.getLeft() > q.getLeft());
-            assertTrue(z.getLeft() > q.getLeft());
+            assertQwertyGridAligned(harness.layout);
             assertTrue(harness.layout.spaceButton().getWidth() > q.getWidth() * 3);
             Button language = harness.layout.switchKeyboardButton();
             assertTrue(language.getPaint().measureText(language.getText().toString())
                     <= language.getWidth() - language.getPaddingLeft() - language.getPaddingRight());
             assertTrue(bottomRow.getMeasuredHeight() > 0);
+        });
+    }
+
+    @Test
+    public void qwertyGridRemainsAlignedAtLandscapeWidth() {
+        onMain(() -> {
+            Harness harness = new Harness();
+            LinearLayout root = harness.layout.root();
+            root.measure(
+                    View.MeasureSpec.makeMeasureSpec(2400, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.AT_MOST));
+            root.layout(0, 0, root.getMeasuredWidth(), root.getMeasuredHeight());
+
+            assertEquals(2400, root.getMeasuredWidth());
+            assertQwertyGridAligned(harness.layout);
+            assertTrue(root.getMeasuredHeight() <= dp(root.getContext(), 220));
         });
     }
 
@@ -519,6 +533,31 @@ public final class LatinKeyboardLayoutInstrumentedTest {
 
     private static int dp(Context context, int value) {
         return Math.round(value * context.getResources().getDisplayMetrics().density);
+    }
+
+    private static int centerX(View view) {
+        return view.getLeft() + view.getWidth() / 2;
+    }
+
+    private static void assertQwertyGridAligned(LatinKeyboardLayout layout) {
+        Button q = layout.letterButton('q');
+        Button w = layout.letterButton('w');
+        Button a = layout.letterButton('a');
+        Button s = layout.letterButton('s');
+        Button d = layout.letterButton('d');
+        Button z = layout.letterButton('z');
+        Button x = layout.letterButton('x');
+        assertNear((centerX(q) + centerX(w)) / 2, centerX(a), 1);
+        assertNear(centerX(s), centerX(z), 1);
+        assertNear(centerX(d), centerX(x), 1);
+        assertNear(q.getWidth(), a.getWidth(), 1);
+        assertNear(a.getWidth(), z.getWidth(), 1);
+        assertNear(layout.shiftButton().getWidth(), layout.deleteButton().getWidth(), 2);
+    }
+
+    private static void assertNear(int expected, int actual, int tolerance) {
+        assertTrue("expected=" + expected + " actual=" + actual,
+                Math.abs(expected - actual) <= tolerance);
     }
 
     private static final class Harness implements LatinKeyboardLayout.Listener {

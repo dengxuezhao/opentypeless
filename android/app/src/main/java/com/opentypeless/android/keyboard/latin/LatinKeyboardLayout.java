@@ -39,6 +39,9 @@ public final class LatinKeyboardLayout {
     private static final int KEY_VERTICAL_MARGIN_DP = 2;
     private static final float LETTER_KEY_TEXT_SIZE_SP = 22f;
     private static final float FUNCTION_KEY_TEXT_SIZE_SP = 16f;
+    private static final float LETTER_KEY_GRID_WEIGHT = 2f;
+    private static final float ROW_INDENT_GRID_WEIGHT = 1f;
+    private static final float FUNCTION_KEY_GRID_WEIGHT = 3f;
 
     @FunctionalInterface
     public interface KeyFactory {
@@ -417,7 +420,7 @@ public final class LatinKeyboardLayout {
         });
         letters.put(letter, button);
         letterFlickGestures.put(letter, flickGesture);
-        addWeighted(row, button, 1f);
+        addWeighted(row, button, LETTER_KEY_GRID_WEIGHT);
     }
 
     @SuppressLint("ClickableViewAccessibility") // Tap delegates to Button.performClick.
@@ -531,10 +534,14 @@ public final class LatinKeyboardLayout {
             periodButton.setVisibility(View.GONE);
         } else if (state.layer() == LatinKeyboardState.Layer.LETTERS) {
             populateLetterRow(firstRow, LETTER_ROWS[0], LONG_PRESS_ROWS[0], 0f);
-            populateLetterRow(secondRow, LETTER_ROWS[1], LONG_PRESS_ROWS[1], 0.5f);
-            addWeighted(thirdRow, shiftButton, 1.45f);
+            populateLetterRow(
+                    secondRow,
+                    LETTER_ROWS[1],
+                    LONG_PRESS_ROWS[1],
+                    ROW_INDENT_GRID_WEIGHT);
+            addGridFunctionKey(thirdRow, shiftButton, true);
             populateLetterRow(thirdRow, LETTER_ROWS[2], LONG_PRESS_ROWS[2], 0f);
-            addWeighted(thirdRow, deleteButton, 1.45f);
+            addGridFunctionKey(thirdRow, deleteButton, false);
             symbolPageButton.setVisibility(View.GONE);
             symbolsToggleButton.setVisibility(View.VISIBLE);
             symbolsToggleButton.setText(R.string.ime_key_symbols);
@@ -747,15 +754,31 @@ public final class LatinKeyboardLayout {
     }
 
     private void addWeighted(LinearLayout row, View child, float weight) {
+        LinearLayout.LayoutParams params = weightedKeyParams(weight);
+        params.setMarginStart(dp(KEY_SIDE_MARGIN_DP));
+        params.setMarginEnd(dp(KEY_SIDE_MARGIN_DP));
+        row.addView(child, params);
+    }
+
+    private void addGridFunctionKey(LinearLayout row, View child, boolean leading) {
+        LinearLayout.LayoutParams params = weightedKeyParams(FUNCTION_KEY_GRID_WEIGHT);
+        params.setMarginStart(dp(leading
+                ? KEY_SIDE_MARGIN_DP * 2
+                : KEY_SIDE_MARGIN_DP));
+        params.setMarginEnd(dp(leading
+                ? KEY_SIDE_MARGIN_DP
+                : KEY_SIDE_MARGIN_DP * 2));
+        row.addView(child, params);
+    }
+
+    private LinearLayout.LayoutParams weightedKeyParams(float weight) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 0,
                 dp(KEY_HEIGHT_DP),
                 weight);
-        params.setMarginStart(dp(KEY_SIDE_MARGIN_DP));
-        params.setMarginEnd(dp(KEY_SIDE_MARGIN_DP));
         params.topMargin = dp(KEY_VERTICAL_MARGIN_DP);
         params.bottomMargin = dp(KEY_VERTICAL_MARGIN_DP);
-        row.addView(child, params);
+        return params;
     }
 
     private void addSpacer(LinearLayout row, float weight) {
@@ -764,7 +787,9 @@ public final class LatinKeyboardLayout {
         // A plain View with WRAP_CONTENT height can consume the IME's entire AT_MOST height
         // during LinearLayout's weighted-width measurement pass. Keep the indent spacer
         // heightless so the row height is determined exclusively by its 50dp keys.
-        row.addView(spacer, new LinearLayout.LayoutParams(0, 0, weight));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, 0, weight);
+        params.setMarginStart(dp(KEY_SIDE_MARGIN_DP));
+        row.addView(spacer, params);
     }
 
     private static LinearLayout.LayoutParams matchWrap() {
