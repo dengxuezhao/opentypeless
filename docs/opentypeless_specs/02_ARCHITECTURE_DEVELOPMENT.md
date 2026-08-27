@@ -3247,19 +3247,28 @@ Action toolbar 尚未实现；KBD-011 clipboard 面板只消费这里的 `clipbo
 
 ---
 
-## 36A. KBD-011 当前剪贴板面板
+## 36A. KBD-011 加密剪贴板历史与搜索
 
 `ClipboardPanelSnapshot` 是纯 Java、最多 40,000 Unicode code points 的一次性当前剪贴板快照。它拒绝畸形 UTF-16、
 不可提交控制字符和超长输入，预览按 code point 截断，diagnostic 只含状态与长度。`SystemClipboardReader` 仅在用户
 打开面板或点击刷新时调用一次 `getPrimaryClip()`，只读取第一项已经物化的 `getText()`；URI、Intent 和富文本不做
-coerce/resolver 访问。产品不注册 clipboard listener，不建立历史、持久化、同步、导出或网络路径。
+coerce/resolver 访问。产品不注册 clipboard listener 或后台轮询，因此只承诺保存用户显式打开/刷新时观察到的当前项。
 
-`KeyboardClipboardPanel` 只持有 View、一个有界 snapshot 和 Paste/Refresh/Close callback，不持有 ClipboardManager、
-InputConnection、editor、网络或存储能力。入口位于既有 More menu，并且只在 SEC-005 的 `clipboardVisible` 与活动普通
-字段同时成立时生成。敏感字段切入、字段结束、InputView 结束、窗口隐藏、service 销毁和用户关闭都会清空 retained
-body；恢复普通字段不会恢复旧 snapshot。
+`ClipboardHistory` 保存最多 100 个去重 MRU 项、总计最多 120,000 code points，并在内存计算文本/数字/链接分类。
+`ClipboardHistoryCodec` 使用固定 magic、v1 和 canonical unpadded Base64URL UTF-8 行；未知版本、非 canonical 编码、
+畸形文本及任一数量/长度越界均 fail closed。完整 payload 通过独立 AndroidKeyStore AES-256-GCM domain 加密后写入
+backup-excluded private SharedPreferences；只保存正文与 MRU 顺序，不保存时间、次数、App、字段、类型或搜索词。
 
-Paste 重新校验 snapshot，Voice 活动或 Rime composition/pending work 时明确拒绝；Rime idle session 可关闭后继续。
+`KeyboardClipboardPanel` 只持有 View、有界历史与 Paste/Refresh/Search/Clear/Close callback，不持有 ClipboardManager、
+InputConnection、editor、网络或存储能力。Keystore/SharedPreferences 只在 service 的串行 local-I/O executor 执行，
+结果同时校验 editor epoch 与 clipboard request generation。入口只在 SEC-005 的 `clipboardVisible` 与活动普通字段同时
+成立时生成；敏感或 no-learning 字段不读取、解密、渲染或写入历史。字段结束、InputView/窗口隐藏、service 销毁和用户
+关闭都会销毁面板内的 query、历史引用与旧 callback；恢复普通字段不会恢复旧 View 状态。
+
+搜索编辑期间，现有可见 QWERTY 的字母、删除和回车先被路由到内存 query，不进入 Rime 或 editor；结束搜索后恢复正常
+路由。清空全部历史要求活动面板内连续两次显式确认。搜索、分类、刷新和清空均不引入新的 editor writer。
+
+Paste 重新校验选中的 snapshot，Voice 活动或 Rime composition/pending work 时明确拒绝；Rime idle session 可关闭后继续。
 实际写入仍调用既有 `insertKeyboardText` façade，经 fresh generation/selection/fingerprint 与唯一 ETM 完成，不新增
 InputConnection writer 或当前光标 fallback。
 

@@ -113,8 +113,10 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "keyboardToolbarPrivacy=restrictedToolbarPrivacy()",
         'toolbar.setActionVisible("voice.mode",voiceVisible)',
         "keyboardInputModeLayout.setVoiceAvailable(voiceVisible)",
-        "if(!keyboardToolbarPrivacy.clipboardVisible())hideClipboardPanel()",
-        "keyboardToolbarPrivacy.clipboardVisible()&&currentEditor!=null",
+        "privatebooleanclipboardHistoryAllowed()",
+        "!sensitiveField&&currentLearningAllowed&&keyboardToolbarPrivacy.clipboardVisible()",
+        "if(!clipboardHistoryAllowed())hideClipboardPanel()",
+        "if(clipboardHistoryAllowed())",
         "refreshVoicePulseVisibility()",
         "voicePulse.setVisibility(keyboardToolbarPrivacy.voiceVisible()&&activeVoice&&statusVisible?View.VISIBLE:View.GONE)",
         "keyboardToolbarPrivacy.teachVisible()&&TeachCorrectionResolver.isEligible",
@@ -148,15 +150,17 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
             "real toolbar Views must prove GONE-to-VISIBLE restoration",
         ))
 
+    host_section = host.split(
+        "selectedImeHidesSensitiveToolbarAndRestoresOrdinaryWhenRequested", 1
+    )[-1].split("@Test", 1)[0]
     host_tokens = (
         'getString("imeSensitiveToolbarPackage")',
-        "selectedImeHidesSensitiveToolbarAndRestoresOrdinaryWhenRequested",
         "focusField(R.id.host_plain_text)",
         "focusField(R.id.host_otp)",
         "focusField(R.id.host_no_learning)",
         "assertToolbarPrivacyState(automation, expectedPackage, R.id.host_otp, false, true)",
     )
-    if any(token not in host for token in host_tokens) or host.count(
+    if any(token not in host_section for token in host_tokens) or host_section.count(
             "focusField(R.id.host_plain_text)") < 2:
         violations.append(Violation(
             "SEC005_SYSTEM_TEST",

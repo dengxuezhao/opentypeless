@@ -1006,6 +1006,18 @@ EN 恢复半角；数字及结构化/敏感字段保持原字符。转换不改�
 Debug/Release/Test APK 精确资源扫描均 PASS。API35 ARM64 emulator 选中真实 OpenTypeless 后，当前剪贴板精确粘贴
 和 OTP 敏感字段隐藏 1/1 PASS，并恢复 LatinIME。小米 10 Ultra 本次未连接，因此不宣称真机安装或验收。
 
+**KBD-011 多条历史与搜索跟进（2026-08-27，`DONE`）：** 剪贴板面板改为最多 100 条、总计 120,000
+Unicode code points 的去重 MRU；提供全文/文本/数字/链接分类、即时搜索、刷新和二次确认清空。历史以独立
+AndroidKeyStore AES-256-GCM 域写入版本化私有格式，不保存来源、时间、字段、查询或统计；只在用户打开/刷新时
+捕获已物化纯文本，不注册 listener。搜索时可见 QWERTY 只编辑内存查询，不经过 Rime 或 EditorTransaction；粘贴
+仍只走既有 ETM。敏感字段及 `NO_PERSONALIZED_LEARNING` 字段均不读取、解密、显示或记录历史。
+
+focused JVM 14/14、API35 ARM64 instrumentation 9/9、系统选中 IME Test Host 1/1、clipboard architecture
+13/13、sensitive-toolbar 10/10 PASS；完整 preflight 为 121 repository tests、11 Android checks、285
+architecture tests、10 mobile-voice tests，clean Gradle graph 191 tasks，app JVM 1095/1095。Debug/Release/Test
+APK 精确资源扫描均为 0 violations / 0 bundled Xiaohè。模拟器确认两条历史跨进程保留且 `exam` 搜索不写入宿主
+字段；小米设备未连接，因此真机安装与验收 `NOT RUN`。
+
 **KBD-004 完成说明（2026-08-16，`DONE`）：** 新增闭合 field profile，邮箱/URL 提供直达符号，电话、
 数字、日期使用专用数字面板，密码分类优先且不会启用 Voice。`onStartInput` 只把 metadata 映射为 View 状态；
 所有输出继续经 KBD-002 单一 callback 与唯一 ETM。

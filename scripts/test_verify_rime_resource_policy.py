@@ -77,8 +77,9 @@ class ResourcePolicyContractTest(unittest.TestCase):
         )
         self.assertEqual(3, len(self.contract.fixtures))
         self.assertEqual(16, len(self.contract.native_engines))
-        self.assertEqual(99, len(self.contract.artifact_expectations))
+        self.assertEqual(103, len(self.contract.artifact_expectations))
         self.assertEqual(24, len(self.contract.opaque_binaries))
+        self.assertEqual(9, len(self.contract.reviewed_dynamic_sources))
         self.assertEqual(1, len(self.contract.trusted_tree_manifest_sha256))
 
     def test_import_schema_matches_accepted_adr_contract(self) -> None:
@@ -228,6 +229,23 @@ class ResourcePolicyContractTest(unittest.TestCase):
             item
             for item in self.contract.reviewed_dynamic_sources
             if item.classification == "RIM003_LOCAL_IMPORTER"
+        )
+        state = self.state("repository")
+        verifier._inspect_production_source(
+            state,
+            reviewed.path,
+            (REPO_ROOT / reviewed.path).read_bytes() + b" ",
+        )
+        self.assertIn(
+            "REVIEWED_DYNAMIC_SOURCE_DRIFT",
+            {finding.code for finding in state.findings},
+        )
+
+    def test_reviewed_clipboard_codec_source_drift_fails_closed(self) -> None:
+        reviewed = next(
+            item
+            for item in self.contract.reviewed_dynamic_sources
+            if item.path.endswith("/ClipboardHistoryCodec.java")
         )
         state = self.state("repository")
         verifier._inspect_production_source(

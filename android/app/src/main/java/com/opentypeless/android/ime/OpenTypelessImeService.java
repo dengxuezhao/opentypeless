@@ -58,6 +58,8 @@ import com.opentypeless.android.editor.host.EditorSessionManager;
 import com.opentypeless.android.keyboard.candidate.CandidatePage;
 import com.opentypeless.android.keyboard.candidate.KeyboardCandidateBar;
 import com.opentypeless.android.keyboard.clipboard.ClipboardPanelSnapshot;
+import com.opentypeless.android.keyboard.clipboard.ClipboardHistory;
+import com.opentypeless.android.keyboard.clipboard.ClipboardHistoryStore;
 import com.opentypeless.android.keyboard.clipboard.KeyboardClipboardPanel;
 import com.opentypeless.android.keyboard.clipboard.SystemClipboardReader;
 import com.opentypeless.android.keyboard.emoji.EmojiCatalog;
@@ -947,6 +949,7 @@ public final class OpenTypelessImeService extends InputMethodService
     private AndroidKeyboardFeedback keyboardFeedback;
     private KeyboardCandidateBar keyboardCandidateBar;
     private KeyboardClipboardPanel keyboardClipboardPanel;
+    private ClipboardHistoryStore clipboardHistoryStore;
     private KeyboardEmojiPanel keyboardEmojiPanel;
     private View keyboardTypingSurface;
     private KeyboardToolbarLayout keyboardToolbarLayout;
@@ -963,6 +966,12 @@ public final class OpenTypelessImeService extends InputMethodService
     private RimeRuntimeConfig availableRimeConfig;
     private long rimeAvailabilityRequest;
     private boolean currentLearningAllowed;
+    private long clipboardHistoryRequest;
+    private boolean clipboardSearchPaddingApplied;
+    private int clipboardSearchPaddingLeft;
+    private int clipboardSearchPaddingTop;
+    private int clipboardSearchPaddingRight;
+    private int clipboardSearchPaddingBottom;
     private RimeCompositionLease activeRimeLease;
     private boolean holdToTalkActive;
     private boolean preparingVoiceInput;
@@ -1088,6 +1097,7 @@ public final class OpenTypelessImeService extends InputMethodService
         rimeUserDataStore = new RimeUserDataStore(this);
         keyboardFeedback = new AndroidKeyboardFeedback(this);
         emojiRecentStore = new EmojiRecentStore(this);
+        clipboardHistoryStore = new ClipboardHistoryStore(this);
         personalizationStore = new PersonalizationStore(this);
         draftPreferences = new SecurePreferences(this);
         localIo = Executors.newSingleThreadExecutor();
@@ -1370,6 +1380,16 @@ public final class OpenTypelessImeService extends InputMethodService
                     @Override
                     public void onClose() {
                         hideClipboardPanel();
+                    }
+
+                    @Override
+                    public void onSearchEditingChanged(boolean editing) {
+                        setClipboardSearchEditing(editing);
+                    }
+
+                    @Override
+                    public void onClearHistory() {
+                        clearClipboardHistory();
                     }
                 });
         keyboardClipboardPanel.root().setVisibility(View.GONE);
@@ -3065,6 +3085,12 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void routeTypingText(String text) {
+        KeyboardClipboardPanel clipboard = keyboardClipboardPanel;
+        if (clipboard != null && clipboard.isSearchEditing()) {
+            // Search owns visible QWERTY callbacks before either Rime or the editor sees them.
+            clipboard.appendSearchText(text);
+            return;
+        }
         if (keyboardEngineSelection.active() != KeyboardEngineSelection.Engine.RIME) {
             insertKeyboardText(text);
             return;
@@ -3134,6 +3160,11 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void routeDeleteBackward() {
+        KeyboardClipboardPanel clipboard = keyboardClipboardPanel;
+        if (clipboard != null && clipboard.isSearchEditing()) {
+            clipboard.deleteSearchCodePoint();
+            return;
+        }
         if (keyboardEngineSelection.active() == KeyboardEngineSelection.Engine.RIME) {
             RimeCompositionLease lease = activeRimeLease;
             if (lease != null && lease.hasComposition()) {
@@ -3150,6 +3181,11 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void routeKeyboardEnter() {
+        KeyboardClipboardPanel clipboard = keyboardClipboardPanel;
+        if (clipboard != null && clipboard.isSearchEditing()) {
+            clipboard.finishSearchEditing();
+            return;
+        }
         if (keyboardEngineSelection.active() == KeyboardEngineSelection.Engine.RIME) {
             RimeCompositionLease lease = activeRimeLease;
             if (lease != null && lease.hasComposition()) {
@@ -4485,7 +4521,7 @@ public final class OpenTypelessImeService extends InputMethodService
                         2,
                         R.string.ime_key_teach);
             }
-            if (keyboardToolbarPrivacy.clipboardVisible() && currentEditor != null) {
+            if (clipboardHistoryAllowed()) {
                 popup.getMenu().add(
                         Menu.NONE,
                         MENU_CLIPBOARD,
@@ -4581,9 +4617,16 @@ public final class OpenTypelessImeService extends InputMethodService
         if (keyboardInputModeLayout != null) {
             keyboardInputModeLayout.setVoiceAvailable(voiceVisible);
         }
-        if (!keyboardToolbarPrivacy.clipboardVisible()) hideClipboardPanel();
+        if (!clipboardHistoryAllowed()) hideClipboardPanel();
         if (!emojiPrivacy.panelVisible()) hideEmojiPanel();
         refreshVoicePulseVisibility();
+    }
+
+    private boolean clipboardHistoryAllowed() {
+        return currentEditor != null
+                && !sensitiveField
+                && currentLearningAllowed
+                && keyboardToolbarPrivacy.clipboardVisible();
     }
 
     private void showClipboardPanel() {
@@ -4591,7 +4634,7 @@ public final class OpenTypelessImeService extends InputMethodService
             setStatus(R.string.ime_status_no_active_field, true);
             return;
         }
-        if (sensitiveField || !keyboardToolbarPrivacy.clipboardVisible()) {
+        if (!clipboardHistoryAllowed()) {
             hideClipboardPanel();
             setStatus(R.string.ime_status_clipboard_sensitive, true);
             return;
@@ -4604,33 +4647,147 @@ public final class OpenTypelessImeService extends InputMethodService
         }
         hideEmojiPanel();
         if (latinKeyboardLayout != null) latinKeyboardLayout.cancelTransientGestures();
-        panel.render(SystemClipboardReader.readCurrentText(this));
+        // Search uses the visible QWERTY rows, so enter the typing page before exposing the panel.
+        if (keyboardInputModeLayout != null
+                && keyboardInputModeLayout.mode() != KeyboardInputModeLayout.Mode.QWERTY) {
+            keyboardInputModeLayout.select(KeyboardInputModeLayout.Mode.QWERTY);
+        }
+        ClipboardPanelSnapshot current = SystemClipboardReader.readCurrentText(this);
+        panel.showLoading();
         typingSurface.setVisibility(View.GONE);
         panel.root().setVisibility(View.VISIBLE);
+        requestClipboardHistory(current);
     }
 
     private void refreshClipboardPanel() {
         KeyboardClipboardPanel panel = keyboardClipboardPanel;
         if (panel == null || panel.root().getVisibility() != View.VISIBLE) return;
-        if (currentEditor == null
-                || sensitiveField
-                || !keyboardToolbarPrivacy.clipboardVisible()) {
+        if (!clipboardHistoryAllowed()) {
             hideClipboardPanel();
             setStatus(R.string.ime_status_clipboard_sensitive, true);
             return;
         }
-        panel.render(SystemClipboardReader.readCurrentText(this));
+        ClipboardPanelSnapshot current = SystemClipboardReader.readCurrentText(this);
+        panel.showLoading();
+        requestClipboardHistory(current);
+    }
+
+    private void requestClipboardHistory(ClipboardPanelSnapshot current) {
+        KeyboardClipboardPanel panel = keyboardClipboardPanel;
+        ClipboardHistoryStore store = clipboardHistoryStore;
+        if (panel == null || store == null || localIo == null) return;
+        final long request = ++clipboardHistoryRequest;
+        final long requestEpoch = editorEpoch;
+        try {
+            localIo.execute(() -> {
+                ClipboardHistoryStore.Result result = store.loadAndRecord(current);
+                postUiIfAlive(() -> {
+                    if (request != clipboardHistoryRequest
+                            || requestEpoch != editorEpoch
+                            || !clipboardHistoryAllowed()
+                            || panel.root().getVisibility() != View.VISIBLE) {
+                        return;
+                    }
+                    panel.render(result.history(), current.state());
+                    if (result.status() == ClipboardHistoryStore.Status.FUTURE_VERSION) {
+                        setStatus(R.string.ime_status_clipboard_history_future, true);
+                    } else if (result.status() == ClipboardHistoryStore.Status.WRITE_FAILED
+                            || result.status() == ClipboardHistoryStore.Status.UNAVAILABLE) {
+                        setStatus(R.string.ime_status_clipboard_history_memory_only, true);
+                    }
+                });
+            });
+        } catch (RejectedExecutionException unavailable) {
+            ClipboardHistory ephemeral = ClipboardHistory.empty().record(current);
+            panel.render(ephemeral, current.state());
+            setStatus(R.string.ime_status_clipboard_history_memory_only, true);
+        }
+    }
+
+    private void clearClipboardHistory() {
+        KeyboardClipboardPanel panel = keyboardClipboardPanel;
+        ClipboardHistoryStore store = clipboardHistoryStore;
+        if (panel == null
+                || store == null
+                || localIo == null
+                || panel.root().getVisibility() != View.VISIBLE
+                || !clipboardHistoryAllowed()) {
+            return;
+        }
+        panel.showLoading();
+        final long request = ++clipboardHistoryRequest;
+        final long requestEpoch = editorEpoch;
+        try {
+            localIo.execute(() -> {
+                boolean cleared = store.clear();
+                postUiIfAlive(() -> {
+                    if (request != clipboardHistoryRequest
+                            || requestEpoch != editorEpoch
+                            || panel.root().getVisibility() != View.VISIBLE
+                            || !clipboardHistoryAllowed()) {
+                        return;
+                    }
+                    if (cleared) {
+                        panel.render(
+                                ClipboardHistory.empty(),
+                                ClipboardPanelSnapshot.State.EMPTY);
+                        setStatus(R.string.ime_status_clipboard_history_cleared, false);
+                    } else {
+                        setStatus(R.string.ime_status_clipboard_history_clear_failed, true);
+                        refreshClipboardPanel();
+                    }
+                });
+            });
+        } catch (RejectedExecutionException unavailable) {
+            setStatus(R.string.ime_status_clipboard_history_clear_failed, true);
+            refreshClipboardPanel();
+        }
+    }
+
+    private void setClipboardSearchEditing(boolean editing) {
+        View typingSurface = keyboardTypingSurface;
+        KeyboardClipboardPanel panel = keyboardClipboardPanel;
+        if (typingSurface == null
+                || panel == null
+                || panel.root().getVisibility() != View.VISIBLE) {
+            return;
+        }
+        if (editing && !clipboardSearchPaddingApplied) {
+            clipboardSearchPaddingLeft = typingSurface.getPaddingLeft();
+            clipboardSearchPaddingTop = typingSurface.getPaddingTop();
+            clipboardSearchPaddingRight = typingSurface.getPaddingRight();
+            clipboardSearchPaddingBottom = typingSurface.getPaddingBottom();
+            typingSurface.setPadding(
+                    clipboardSearchPaddingLeft,
+                    clipboardSearchPaddingTop + dp(KeyboardClipboardPanel.SEARCH_OVERLAY_HEIGHT_DP),
+                    clipboardSearchPaddingRight,
+                    clipboardSearchPaddingBottom);
+            clipboardSearchPaddingApplied = true;
+        } else if (!editing) {
+            restoreClipboardSearchPadding();
+        }
+        typingSurface.setVisibility(editing ? View.VISIBLE : View.GONE);
+        panel.root().bringToFront();
+    }
+
+    private void restoreClipboardSearchPadding() {
+        View typingSurface = keyboardTypingSurface;
+        if (!clipboardSearchPaddingApplied || typingSurface == null) return;
+        typingSurface.setPadding(
+                clipboardSearchPaddingLeft,
+                clipboardSearchPaddingTop,
+                clipboardSearchPaddingRight,
+                clipboardSearchPaddingBottom);
+        clipboardSearchPaddingApplied = false;
     }
 
     private void pasteClipboardText(String text) {
         ClipboardPanelSnapshot snapshot = ClipboardPanelSnapshot.fromPrimaryText(text);
         if (!snapshot.hasText()) {
-            if (keyboardClipboardPanel != null) keyboardClipboardPanel.render(snapshot);
+            setStatus(R.string.ime_clipboard_unavailable, true);
             return;
         }
-        if (currentEditor == null
-                || sensitiveField
-                || !keyboardToolbarPrivacy.clipboardVisible()) {
+        if (!clipboardHistoryAllowed()) {
             hideClipboardPanel();
             setStatus(R.string.ime_status_clipboard_sensitive, true);
             return;
@@ -4650,6 +4807,8 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void hideClipboardPanel() {
+        clipboardHistoryRequest++;
+        restoreClipboardSearchPadding();
         KeyboardClipboardPanel panel = keyboardClipboardPanel;
         if (panel != null) {
             panel.clear();

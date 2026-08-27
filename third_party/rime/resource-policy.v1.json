@@ -1140,6 +1140,40 @@
       "profiles": ["test"],
       "required_synthetic_fixture_ids": [],
       "required_native_engine_ids": []
+    },
+    {
+      "sha256": "c49d3640032729990e3cc7da3b9810f2f92657d801543b0468c9eaf3e0fddd25",
+      "profiles": ["product"],
+      "required_synthetic_fixture_ids": [],
+      "required_native_engine_ids": [
+        "rime-arm64-adapter", "rime-arm64-engine",
+        "rime-x86_64-adapter", "rime-x86_64-engine",
+        "sherpa-arm64-onnx-apk", "sherpa-arm64-jni-apk",
+        "sherpa-x86_64-onnx-apk", "sherpa-x86_64-jni-apk"
+      ]
+    },
+    {
+      "sha256": "cf587203d70e2fbc4f8daa5834f1e40597868caa5e465b54b5e5833acbbcf483",
+      "profiles": ["product"],
+      "required_synthetic_fixture_ids": [],
+      "required_native_engine_ids": [
+        "rime-arm64-adapter", "rime-arm64-engine",
+        "rime-x86_64-adapter", "rime-x86_64-engine",
+        "sherpa-arm64-onnx-apk", "sherpa-arm64-jni-apk",
+        "sherpa-x86_64-onnx-apk", "sherpa-x86_64-jni-apk"
+      ]
+    },
+    {
+      "sha256": "14780efd611662ecb437944ed0295c30a0f6a61d1335ab7ea13141408bbf6110",
+      "profiles": ["test"],
+      "required_synthetic_fixture_ids": [],
+      "required_native_engine_ids": []
+    },
+    {
+      "sha256": "949490aa87127e962b127498b56e8137cda964ef71a378a4a081d8afd03e655e",
+      "profiles": ["test"],
+      "required_synthetic_fixture_ids": [],
+      "required_native_engine_ids": []
     }
   ],
   "opaque_binary_baseline": [
@@ -1329,6 +1363,12 @@
       "path": "android/app/src/main/java/com/opentypeless/android/security/SecurePreferences.java",
       "bytes": 9522,
       "sha256": "aca988aa3da4fa9d44867b9d227f654c837bb2d0683d2c6e05656ca3ccdbea48",
+      "classification": "PINNED_EXISTING_DECODER"
+    },
+    {
+      "path": "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryCodec.java",
+      "bytes": 4150,
+      "sha256": "58facd2f9e5e2ade8de24e9150d2b31a20edfc9576737dbe60271d9f9684d163",
       "classification": "PINNED_EXISTING_DECODER"
     },
     {

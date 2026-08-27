@@ -32,7 +32,7 @@ POLICY_REL = Path("third_party/rime/resource-policy.v1.json")
 IMPORT_SCHEMA_REL = Path("protocol/opentypeless-rime-import-manifest-v1.schema.json")
 ROUTE_A_SERIES_REL = Path("third_party/keyboard/route_a/patches/series.v1.json")
 
-TRUSTED_POLICY_CANONICAL_SHA256 = "ab5d0c0ae5f8683187be7709eb4dfac6b8ede8d3c695569463de858cdc39a804"
+TRUSTED_POLICY_CANONICAL_SHA256 = "d2417398ff756a165255878a6dd30270c0295abc91375f5f447b72276ae82d91"
 TRUSTED_IMPORT_SCHEMA_CANONICAL_SHA256 = "5d466e6bf38959deb47fc15bd946e3429e559ad4342367b9435ce1d9330f30cf"
 
 HEX40 = re.compile(r"[0-9a-f]{40}")
@@ -465,8 +465,8 @@ def _validate_policy(value: dict[str, object]) -> Contract:
         ))
 
     raw_expectations = value["artifact_expectations"]
-    if not isinstance(raw_expectations, list) or len(raw_expectations) != 99:
-        raise PolicyError("artifact expectations must contain the exact ninety-nine reviewed APKs")
+    if not isinstance(raw_expectations, list) or len(raw_expectations) != 103:
+        raise PolicyError("artifact expectations must contain the exact 103 reviewed APKs")
     expectation_keys = {
         "sha256", "profiles", "required_synthetic_fixture_ids", "required_native_engine_ids",
     }
@@ -532,8 +532,8 @@ def _validate_policy(value: dict[str, object]) -> Contract:
         ))
 
     raw_dynamic_sources = value["reviewed_dynamic_source_baseline"]
-    if not isinstance(raw_dynamic_sources, list) or len(raw_dynamic_sources) != 8:
-        raise PolicyError("reviewed dynamic source baseline must contain exactly 8 identities")
+    if not isinstance(raw_dynamic_sources, list) or len(raw_dynamic_sources) != 9:
+        raise PolicyError("reviewed dynamic source baseline must contain exactly 9 identities")
     reviewed_dynamic_sources: list[ReviewedDynamicSource] = []
     seen_dynamic_paths: set[str] = set()
     for index, raw_source in enumerate(raw_dynamic_sources):

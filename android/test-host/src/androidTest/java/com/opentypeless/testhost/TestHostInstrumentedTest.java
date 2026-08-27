@@ -11,6 +11,7 @@ import android.app.Instrumentation;
 import android.app.Activity;
 import android.app.Application;
 import android.app.UiAutomation;
+import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.content.Context;
 import android.content.ClipData;
@@ -527,6 +528,17 @@ public final class TestHostInstrumentedTest {
             Set<String> sensitiveMenu = packageLabels(automation, expectedPackage);
             assertFalse("sensitive More menu exposed clipboard: " + sensitiveMenu,
                     sensitiveMenu.contains("Clipboard") || sensitiveMenu.contains("剪贴板"));
+            assertTrue("could not dismiss sensitive More menu",
+                    automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK));
+            SystemClock.sleep(200);
+
+            focusField(R.id.host_no_learning);
+            activateImeNode(automation, expectedPackage, Set.of(
+                    "More voice keyboard actions", "更多语音键盘操作"), false);
+            awaitPackageLabel(automation, expectedPackage, Set.of("Settings", "设置"));
+            Set<String> noLearningMenu = packageLabels(automation, expectedPackage);
+            assertFalse("no-learning More menu exposed clipboard history: " + noLearningMenu,
+                    noLearningMenu.contains("Clipboard") || noLearningMenu.contains("剪贴板"));
         } finally {
             instrumentation.runOnMainSync(clipboard::clearPrimaryClip);
         }

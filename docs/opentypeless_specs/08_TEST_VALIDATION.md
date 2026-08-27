@@ -2768,16 +2768,21 @@ final: "我们今天需要先拆分输入法架构。"
 - 1000 字连续输入；
 - IME 隐显 100 次。
 
-### 12.1 KBD-011 当前剪贴板
+### 12.1 KBD-011 加密剪贴板历史与搜索
 
 - null/empty/plain text/emoji/换行/畸形 UTF-16/禁止控制字符/40,000 code-point 边界；
 - URI 与 Intent item 不调用 coercion 或 resolver；
-- 只在用户打开/刷新时读取一次，不注册 listener 或后台轮询；
+- 只在用户打开/刷新时读取一次，不注册 listener 或后台轮询；多次显式采集形成去重 MRU；
+- 100 项、单项 40,000 code points、总计 120,000 code points、搜索词 64 code points 的四层边界；
+- v1 codec canonical round-trip；未知版本、重复/非 canonical Base64URL、畸形 UTF-8/UTF-16、控制字符与越界 fail closed；
+- 独立 AES-GCM alias/AAD、随机 nonce、篡改拒绝、无明文 fallback，并证明 private preference 中不出现原文；
 - 普通字段的 More 入口可达，敏感字段不生成入口并关闭已打开面板；
-- Close、字段结束、InputView 结束、窗口隐藏和 service 销毁后 View 不保留正文；
+- Close、字段结束、InputView 结束、窗口隐藏和 service 销毁后 View 不保留 query、历史正文引用或旧 callback；
 - preview 截断不改变实际 Paste，诊断不含正文；
 - Paste 只走 `insertKeyboardText`/ETM，Voice 或非 idle Rime composition 明确拒绝；
 - Android/OEM 拒绝读取时显示 unavailable，不申请额外权限或回退 URI/Intent。
+- 搜索期间可见 QWERTY 字母、删除、回车只编辑/结束 query，不写 editor 或进入 Rime；分类结果和空态准确；
+- 清空全部历史要求同一活动面板二次确认；重启/覆盖安装后密文历史可恢复，未来版本不被旧 writer 覆盖。
 
 ### 12.2 KBD-010 分类 Emoji
 

@@ -64,11 +64,12 @@ implicitly version the other. Release entries must name an immutable tag and sou
   letter key. Tap, long-press and flick remain mutually exclusive; Latin output keeps the existing
   editor path, while an active Rime composition commits its exact first candidate and a bounded
   symbol suffix through the same transaction authority.
-- `KBD-011` adds an explicit current-clipboard panel in the existing More menu. It reads only the
-  first already-materialized plain-text item when opened or refreshed, clears that body on every
-  panel/editor/IME lifecycle exit, hides destructively in sensitive fields, and pastes through the
-  existing ETM typing facade. It adds no listener, history, persistence, sync, export, network path
-  or permission.
+- `KBD-011` expands the explicit clipboard panel into a searchable, categorized 100-item MRU. It
+  still captures only the first already-materialized plain-text item when the user opens or refreshes
+  the panel, adds no listener or permission, and keeps sync/export/network paths absent. The bounded
+  v1 payload is encrypted under a dedicated AndroidKeyStore AES-GCM domain in backup-excluded private
+  preferences; sensitive/no-learning fields never read, decrypt, render or write it. Search keys stay
+  inside the panel, clear-all requires a second confirmation, and Paste still uses the ETM facade.
 - `KBD-010` adds a local categorized Emoji panel with eight Unicode 15.1 groups and a bounded
   21-item recent list. Static Emoji stays usable in sensitive fields, while sensitive/no-learning
   policy suppresses every recent-list read and write. The versioned private payload stores only

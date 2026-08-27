@@ -1761,9 +1761,12 @@ Test Host 的 OTP、支付、身份和 no-learning 字段是非敏感合成 fixt
 Action UI 与 KBD-011 clipboard 面板都必须接入同一 hard-safety projection。More anchor 可保留不接触正文的本地导航，
 但其菜单逐项按策略生成。诊断只允许布尔状态，不记录字段 metadata、正文或 App 身份。
 
-KBD-011 只允许用户显式打开/刷新时读取当前第一项已物化纯文本；禁止 listener、后台轮询、URI/Intent coercion、历史、
-持久化、同步、导出、网络与正文日志。面板关闭或任一 editor/IME 生命周期边界必须清空内存 snapshot；敏感字段既不
-生成入口，也会破坏性关闭已打开面板。Android/OEM 拒绝读取时显示 unavailable，不允许用权限或旁路组件扩大能力。
+KBD-011 只允许用户显式打开/刷新时读取当前第一项已物化纯文本；禁止 listener、后台轮询、URI/Intent coercion、同步、
+导出、网络与正文日志。最多 100 项/120,000 code points 的 MRU 以独立 AndroidKeyStore AES-256-GCM domain 加密并写入
+backup-excluded private preferences；payload 只含正文和顺序，未知版本/损坏密文 fail closed，不允许明文 fallback 或复用
+听写历史密钥。面板关闭或任一 editor/IME 生命周期边界必须清空 query、View 正文引用与旧 callback；敏感/no-learning
+字段既不读取或解密历史，也不生成入口，并会破坏性关闭已打开面板。Android/OEM 拒绝读取时显示 unavailable，不允许用
+权限或旁路组件扩大能力。搜索按键只更新有界内存 query，不创建 EditorOperation；清空全部历史需要二次显式确认。
 
 ---
 

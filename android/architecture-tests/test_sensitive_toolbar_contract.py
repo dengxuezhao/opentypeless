@@ -92,7 +92,7 @@ class SensitiveToolbarContractTest(unittest.TestCase):
     def test_rejects_clipboard_without_toolbar_policy(self) -> None:
         self.mutate(
             SERVICE,
-            "if (!keyboardToolbarPrivacy.clipboardVisible()) hideClipboardPanel();",
+            "if (!clipboardHistoryAllowed()) hideClipboardPanel();",
             "if (false) hideClipboardPanel();",
         )
         self.assertIn("SEC005_SERVICE_WIRING", self.rules())

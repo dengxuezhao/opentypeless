@@ -21,6 +21,7 @@ STR001_CHANGE_ID = "STR-001-STREAMING-PROTOCOL-V1-2026-08-15"
 KBD001_CHANGE_ID = "KBD-001-ROUTE-A-SHELL-2026-08-16"
 KBD005_CHANGE_ID = "KBD-005"
 KBD010_CHANGE_ID = "KBD-010"
+KBD011_CHANGE_ID = "KBD-011"
 RIM003_CHANGE_ID = "RIM-003-RIME-RESOURCE-MANIFEST-V1-2026-08-16"
 PLACEHOLDER_PATTERN = re.compile(r"\b(?:TODO|TBD|FIXME)\b|以后补充|待定", re.I)
 
@@ -137,6 +138,16 @@ EXPECTED_ROWS: dict[str, MatrixExpectation] = {
         ),
         KBD005_CHANGE_ID,
     ),
+    "android-clipboard-history": MatrixExpectation(
+        "format",
+        "1",
+        (
+            "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryCodec.java",
+            "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryStore.java",
+            "android/app/src/main/java/com/opentypeless/android/security/LocalClipboardCipher.java",
+        ),
+        KBD011_CHANGE_ID,
+    ),
     "android-emoji-recents": MatrixExpectation(
         "format",
         "1",
@@ -229,6 +240,14 @@ EXPECTED_VERSION_CONSTANTS: dict[tuple[str, str], str] = {
         "android/app/src/main/java/com/opentypeless/android/keyboard/emoji/EmojiRecentCodec.java",
         "FORMAT_VERSION",
     ): "1",
+    (
+        "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryCodec.java",
+        "FORMAT_VERSION",
+    ): "1",
+    (
+        "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryStore.java",
+        "FORMAT_VERSION",
+    ): "formatversion",
     (
         "android/app/src/main/java/com/opentypeless/android/keyboard/emoji/EmojiRecentStore.java",
         "VERSION",
