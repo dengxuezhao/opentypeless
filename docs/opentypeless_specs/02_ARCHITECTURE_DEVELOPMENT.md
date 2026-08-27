@@ -3186,6 +3186,15 @@ editor capability 或持久状态。`onStartInput` 更换目标时先清除旧 S
 命令继续由既有 More menu 按状态生成，不再占用 transient primary View。横屏强制使用 compact label；320dp
 精确宽度下状态文字先省略，三个固定动作不被裁切。
 
+2026-08-27 的语音页跟进把录音热区收敛为独立的 capability-free `VoiceInputPanel`。竖屏固定为提示、160×64dp
+麦克风主按钮与 48dp 删除/符号按钮、48dp 系统键盘与 112×48dp editor action 三层；宽横屏改为单行紧凑结构。
+五个动作只通过 bounded listener 回到 service 的既有路由，面板不获得 editor、网络、存储或录音 capability；图标
+由 `CenteredIconButton` 按真实 bounds 居中，所有交互目标至少 48dp。提示只投影 `IDLE/PREPARING/LISTENING/
+PROCESSING`，editor action 文案跟随 `EditorInfo`，不建立第二套提交路径。
+
+状态栏空字符串是正常的 quiet-idle 状态，不能再经过错误 fallback；非空错误最多显示 4.5 秒，若语音会话仍活动则
+延迟清除。该变更只修正呈现生命周期，不放宽录音、敏感字段、DisclosurePlan 或 EditorTransaction 约束。
+
 容器不持有 ActionDefinition、EditorOperation、`InputConnection`、网络、native、reflection 或存储能力；按钮回调
 仍由 service 的既有有界入口负责。ACT-003 后续可以把已审计 Placement 映射到这两个 slot，但不得绕过 action
 disclosure/editor authority，也不得扩大 KBD-006 的两个主按钮上限。

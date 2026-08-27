@@ -84,6 +84,7 @@ import com.opentypeless.android.keyboard.switching.KeyboardSystemImeSwitcher;
 import com.opentypeless.android.keyboard.toolbar.KeyboardToolbarLayout;
 import com.opentypeless.android.keyboard.toolbar.KeyboardToolbarPrivacyPolicy;
 import com.opentypeless.android.keyboard.ui.CenteredIconButton;
+import com.opentypeless.android.keyboard.voice.VoiceInputPanel;
 import com.opentypeless.android.data.HistoryEntry;
 import com.opentypeless.android.data.PersonalizationSnapshot;
 import com.opentypeless.android.offline.LocalOfflineRecognizer;
@@ -151,6 +152,7 @@ public final class OpenTypelessImeService extends InputMethodService
     private static final int MENU_CLIPBOARD = 212;
     private static final int MENU_EMOJI = 213;
     private static final int MENU_PUNCTUATION_BASE = 300;
+    private static final long TRANSIENT_ERROR_STATUS_MILLIS = 4_500L;
     private static final long DISCARD_CONFIRM_WINDOW_MILLIS = 10_000L;
     private static final long DETACHED_STATE_REFRESH_MILLIS = 500L;
     private static final long NO_PARTIAL_HINT_DELAY_MILLIS = 2_000L;
@@ -932,6 +934,7 @@ public final class OpenTypelessImeService extends InputMethodService
     private TextView transcript;
     private VoicePulseView voicePulse;
     private CenteredIconButton microphone;
+    private VoiceInputPanel voiceInputPanel;
     private Button modeButton;
     private CenteredIconButton moreButton;
     private Button holdToTalkButton;
@@ -982,6 +985,7 @@ public final class OpenTypelessImeService extends InputMethodService
     private final Runnable pendingDetachedRefresh = () -> {
         if (!serviceDestroyed) renderInputViewState();
     };
+    private final Runnable clearTransientErrorStatus = this::clearTransientErrorStatusNow;
 
     private long editorEpoch;
     // EditorTransactionManager intentionally retains an owner-specific revision high-watermark
@@ -1317,7 +1321,9 @@ public final class OpenTypelessImeService extends InputMethodService
         keyStage.setOrientation(LinearLayout.VERTICAL);
         keyStage.setGravity(Gravity.CENTER);
         if (shellFrame.route() == KeyboardShellRoute.ROUTE_A) {
-            LinearLayout voicePage = createVoiceInputPage();
+            boolean wideVoiceLandscape = landscape
+                    && getResources().getConfiguration().screenWidthDp >= 480;
+            LinearLayout voicePage = createVoiceInputPage(wideVoiceLandscape);
             CenteredIconButton inputModeToggle = key(
                     "",
                     getString(R.string.ime_cd_open_keyboard_tab),
@@ -1405,37 +1411,38 @@ public final class OpenTypelessImeService extends InputMethodService
         return root;
     }
 
-    private LinearLayout createVoiceInputPage() {
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setGravity(Gravity.CENTER);
-        page.setMinimumHeight(dp(compactLayout ? 164 : 184));
-        page.setPadding(dp(8), dp(4), dp(8), dp(8));
+    private LinearLayout createVoiceInputPage(boolean wideLandscape) {
+        voiceInputPanel = new VoiceInputPanel(
+                this,
+                microphone,
+                wideLandscape,
+                new VoiceInputPanel.Listener() {
+                    @Override
+                    public void onDelete() {
+                        routeDeleteBackward();
+                    }
 
-        TextView hint = new TextView(this);
-        hint.setText(R.string.ime_voice_tap_hint);
-        hint.setTextColor(getColor(R.color.ime_on_surface_variant));
-        hint.setTextSize(13);
-        hint.setGravity(Gravity.CENTER);
-        hint.setPadding(0, 0, 0, dp(10));
-        page.addView(hint, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
+                    @Override
+                    public void onPunctuation(View anchor) {
+                        showPunctuationMenu(anchor);
+                    }
 
-        microphone.setBackgroundResource(R.drawable.ime_voice_button_background);
-        setCenteredIcon(microphone, R.drawable.ime_ic_microphone);
-        microphone.setBackgroundTintList(null);
-        microphone.setTextColor(getColor(R.color.ime_on_voice_primary));
-        microphone.setMinWidth(dp(148));
-        microphone.setMinimumWidth(dp(148));
-        microphone.setMinHeight(dp(56));
-        microphone.setMinimumHeight(dp(56));
-        microphone.setPadding(0, 0, 0, 0);
-        LinearLayout.LayoutParams microphoneParams = new LinearLayout.LayoutParams(
-                dp(148), dp(56));
-        microphoneParams.gravity = Gravity.CENTER_HORIZONTAL;
-        page.addView(microphone, microphoneParams);
-        return page;
+                    @Override
+                    public void onEditorAction() {
+                        routeKeyboardEnter();
+                    }
+
+                    @Override
+                    public void onSwitchKeyboard() {
+                        switchSystemKeyboard();
+                    }
+
+                    @Override
+                    public void onShowKeyboardPicker() {
+                        showKeyboardPicker();
+                    }
+                });
+        return voiceInputPanel.root();
     }
 
     @Override
@@ -4793,6 +4800,15 @@ public final class OpenTypelessImeService extends InputMethodService
                     : VoicePulseView.Phase.IDLE);
             refreshVoicePulseVisibility();
         }
+        if (voiceInputPanel != null) {
+            voiceInputPanel.setPhase(preparingVoiceInput
+                    ? VoiceInputPanel.Phase.PREPARING
+                    : recording
+                    ? VoiceInputPanel.Phase.LISTENING
+                    : processing || externalFinalizing
+                    ? VoiceInputPanel.Phase.PROCESSING
+                    : VoiceInputPanel.Phase.IDLE);
+        }
 
         setEditingKeysEnabled(editorKeysAllowed, startAllowed);
         if (switchKeyboardButton != null && activeTarget != null) {
@@ -4905,6 +4921,10 @@ public final class OpenTypelessImeService extends InputMethodService
     private void setEditingKeysEnabled(boolean editorEnabled, boolean modeEnabled) {
         if (modeButton != null) modeButton.setEnabled(modeEnabled);
         if (latinKeyboardLayout != null) latinKeyboardLayout.setInputEnabled(editorEnabled);
+        if (voiceInputPanel != null) {
+            voiceInputPanel.setEditorActionsEnabled(editorEnabled);
+            voiceInputPanel.setSystemSwitchEnabled(editorEnabled && activeTarget == null);
+        }
         if (keyboardCandidateBar != null) {
             keyboardCandidateBar.setInteractionEnabled(editorEnabled);
         }
@@ -5603,9 +5623,33 @@ public final class OpenTypelessImeService extends InputMethodService
 
     private void setStatus(String message, boolean error) {
         if (status == null) return;
-        String safe = safeMessage(message);
+        if (mainHandler != null) mainHandler.removeCallbacks(clearTransientErrorStatus);
+        // Empty is an intentional quiet-toolbar state. Passing it through safeMessage() would
+        // turn normal idle rendering into the fallback "Voice input failed" error.
+        String safe = message == null || message.isBlank() ? "" : safeMessage(message);
         status.setText(safe);
         status.setTextColor(getColor(error ? R.color.ime_error : R.color.ime_on_surface_variant));
+        refreshStatusVisibilityForInputMode(keyboardInputModeLayout == null
+                ? null
+                : keyboardInputModeLayout.mode());
+        if (error
+                && !safe.isBlank()
+                && mainHandler != null) {
+            mainHandler.postDelayed(clearTransientErrorStatus, TRANSIENT_ERROR_STATUS_MILLIS);
+        }
+    }
+
+    private void clearTransientErrorStatusNow() {
+        if (serviceDestroyed || status == null) return;
+        VoiceController controller = voiceController;
+        if (activeTarget != null
+                || (controller != null && controller.state() != VoiceController.State.IDLE)) {
+            if (mainHandler != null) {
+                mainHandler.postDelayed(clearTransientErrorStatus, 1_000L);
+            }
+            return;
+        }
+        status.setText("");
         refreshStatusVisibilityForInputMode(keyboardInputModeLayout == null
                 ? null
                 : keyboardInputModeLayout.mode());
@@ -5929,30 +5973,62 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void refreshEnterKey() {
-        if (enterButton == null) return;
         int action = currentEditor == null
                 ? EditorInfo.IME_ACTION_NONE
                 : currentEditor.imeOptions & EditorInfo.IME_MASK_ACTION;
+        applyEnterPresentation(enterButton, action);
+        applyVoiceEnterPresentation(
+                voiceInputPanel == null ? null : voiceInputPanel.enterButton(), action);
+    }
+
+    private void applyEnterPresentation(Button button, int action) {
+        if (button == null) return;
         switch (action) {
             case EditorInfo.IME_ACTION_SEND -> {
-                enterButton.setText(R.string.ime_key_action_send);
-                enterButton.setContentDescription(getString(R.string.ime_cd_action_send));
+                button.setText(R.string.ime_key_action_send);
+                button.setContentDescription(getString(R.string.ime_cd_action_send));
             }
             case EditorInfo.IME_ACTION_SEARCH -> {
-                enterButton.setText(R.string.ime_key_action_search);
-                enterButton.setContentDescription(getString(R.string.ime_cd_action_search));
+                button.setText(R.string.ime_key_action_search);
+                button.setContentDescription(getString(R.string.ime_cd_action_search));
             }
             case EditorInfo.IME_ACTION_DONE -> {
-                enterButton.setText(R.string.ime_key_action_done);
-                enterButton.setContentDescription(getString(R.string.ime_cd_action_done));
+                button.setText(R.string.ime_key_action_done);
+                button.setContentDescription(getString(R.string.ime_cd_action_done));
             }
             case EditorInfo.IME_ACTION_NEXT, EditorInfo.IME_ACTION_GO -> {
-                enterButton.setText(R.string.ime_key_action_next);
-                enterButton.setContentDescription(getString(R.string.ime_cd_action_next));
+                button.setText(R.string.ime_key_action_next);
+                button.setContentDescription(getString(R.string.ime_cd_action_next));
             }
             default -> {
-                enterButton.setText(R.string.ime_key_enter);
-                enterButton.setContentDescription(getString(R.string.ime_cd_enter));
+                button.setText(R.string.ime_key_enter);
+                button.setContentDescription(getString(R.string.ime_cd_enter));
+            }
+        }
+    }
+
+    private void applyVoiceEnterPresentation(Button button, int action) {
+        if (button == null) return;
+        switch (action) {
+            case EditorInfo.IME_ACTION_SEND -> {
+                button.setText(R.string.ime_voice_action_send);
+                button.setContentDescription(getString(R.string.ime_cd_action_send));
+            }
+            case EditorInfo.IME_ACTION_SEARCH -> {
+                button.setText(R.string.ime_voice_action_search);
+                button.setContentDescription(getString(R.string.ime_cd_action_search));
+            }
+            case EditorInfo.IME_ACTION_DONE -> {
+                button.setText(R.string.ime_voice_action_done);
+                button.setContentDescription(getString(R.string.ime_cd_action_done));
+            }
+            case EditorInfo.IME_ACTION_NEXT, EditorInfo.IME_ACTION_GO -> {
+                button.setText(R.string.ime_voice_action_next);
+                button.setContentDescription(getString(R.string.ime_cd_action_next));
+            }
+            default -> {
+                button.setText(R.string.ime_voice_action_enter);
+                button.setContentDescription(getString(R.string.ime_cd_enter));
             }
         }
     }
@@ -5969,6 +6045,7 @@ public final class OpenTypelessImeService extends InputMethodService
         releaseVoiceCoordinatorAfterEditorLifecycle();
         serviceDestroyed = true;
         activeTarget = null;
+        if (mainHandler != null) mainHandler.removeCallbacks(clearTransientErrorStatus);
         closeServiceResources();
         super.onDestroy();
     }

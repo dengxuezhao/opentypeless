@@ -13,6 +13,13 @@ import sys
 TOOLBAR = Path(
     "app/src/main/java/com/opentypeless/android/keyboard/toolbar/KeyboardToolbarLayout.java"
 )
+VOICE_PANEL = Path(
+    "app/src/main/java/com/opentypeless/android/keyboard/voice/VoiceInputPanel.java"
+)
+VOICE_PANEL_TEST = Path(
+    "app/src/androidTest/java/com/opentypeless/android/keyboard/voice/"
+    "VoiceInputPanelInstrumentedTest.java"
+)
 SERVICE = Path("app/src/main/java/com/opentypeless/android/ime/OpenTypelessImeService.java")
 HOST_TEST = Path(
     "test-host/src/androidTest/java/com/opentypeless/testhost/TestHostInstrumentedTest.java"
@@ -49,6 +56,10 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     root = android_root.resolve()
     violations: list[Violation] = []
     toolbar = _read(root, TOOLBAR, "KBD006_TOOLBAR_SOURCE", violations)
+    voice_panel = _read(root, VOICE_PANEL, "KBD006_VOICE_PANEL_SOURCE", violations)
+    voice_panel_test = _read(
+        root, VOICE_PANEL_TEST, "KBD006_VOICE_PANEL_TEST", violations
+    )
     service = _read(root, SERVICE, "KBD006_SERVICE_SOURCE", violations)
     host_test = _read(root, HOST_TEST, "KBD006_SYSTEM_TEST", violations)
 
@@ -61,6 +72,49 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         violations.append(Violation(
             "KBD006_TOOLBAR_CAPABILITY",
             "toolbar must remain bounded View placement without editor/network/storage authority",
+        ))
+
+    if any(token in voice_panel for token in forbidden) or WRITER.search(voice_panel):
+        violations.append(Violation(
+            "KBD006_VOICE_PANEL_CAPABILITY",
+            "voice panel must expose bounded callbacks without editor/network/storage authority",
+        ))
+
+    voice_compact = _compact(voice_panel)
+    voice_tokens = (
+        "MINIMUM_TOUCH_TARGET_DP=48",
+        "enumPhase{IDLE,PREPARING,LISTENING,PROCESSING}",
+        "voidonDelete()",
+        "voidonPunctuation(Viewanchor)",
+        "voidonEditorAction()",
+        "voidonSwitchKeyboard()",
+        "voidonShowKeyboardPicker()",
+        "root.setMinimumHeight(dp(212))",
+        "root.setMinimumHeight(dp(76))",
+        "microphone.setCenteredIconResource(R.drawable.ime_ic_microphone)",
+        "R.drawable.ime_ic_backspace",
+        "R.drawable.ime_ic_globe",
+        "setEditorActionsEnabled(booleanenabled)",
+        "setSystemSwitchEnabled(booleanenabled)",
+    )
+    if any(token not in voice_compact for token in voice_tokens):
+        violations.append(Violation(
+            "KBD006_VOICE_PANEL_LAYOUT",
+            "voice panel must keep its reviewed five controls, exact centering and responsive hierarchy",
+        ))
+
+    voice_test_tokens = (
+        "portraitPanelUsesBalancedTypelessHierarchyAndExactCenteredIcons",
+        "wideLandscapeKeepsAllActionsInsideOneCompactRow",
+        "phaseAndAvailabilityChangeOnlyPresentationAndButtonState",
+        "assertCentered(harness.panel.microphoneButton())",
+        "assertCentered(harness.panel.deleteButton())",
+        "assertCentered(harness.panel.systemKeyboardButton())",
+    )
+    if any(token not in voice_panel_test for token in voice_test_tokens):
+        violations.append(Violation(
+            "KBD006_VOICE_PANEL_TEST",
+            "Android tests must lock portrait/landscape geometry, callbacks and icon centers",
         ))
 
     compact = _compact(toolbar)
@@ -97,9 +151,11 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         'attachPrimaryAction(\n                    "input.mode", keyboardInputModeLayout.toggleButton(), 48)',
         'attachOverflowAnchor("more", moreButton)',
         "new KeyboardInputModeLayout(",
-        "createVoiceInputPage()",
-        "microphone.setMinimumWidth(dp(148))",
-        "microphone.setMinimumHeight(dp(56))",
+        "createVoiceInputPage(wideVoiceLandscape)",
+        "new VoiceInputPanel(",
+        "TRANSIENT_ERROR_STATUS_MILLIS = 4_500L",
+        "mainHandler.postDelayed(clearTransientErrorStatus, TRANSIENT_ERROR_STATUS_MILLIS)",
+        'message == null || message.isBlank() ? "" : safeMessage(message)',
         "MENU_UNDO",
         "KBD-006 keeps Undo in the existing overflow menu",
     )

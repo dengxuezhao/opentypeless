@@ -7,11 +7,11 @@
     <color name="ime_on_surface">#29282F</color>
     <color name="ime_on_surface_variant">#74717B</color>
     <color name="ime_outline">#D0CFD7</color>
-    <color name="ime_primary">#6F50B5</color>
-    <color name="ime_primary_container">#E5DAF8</color>
-    <color name="ime_on_primary_container">#352058</color>
+    <color name="ime_primary">#3D78D8</color>
+    <color name="ime_primary_container">#DCE8FA</color>
+    <color name="ime_on_primary_container">#15355F</color>
     <color name="ime_voice_primary">#2C2930</color>
-    <color name="ime_voice_primary_pressed">#47424C</color>
+    <color name="ime_voice_primary_pressed">#454248</color>
     <color name="ime_on_voice_primary">#FFFFFF</color>
     <color name="ime_success">#2F6F22</color>
     <color name="ime_error">#BA1A1A</color>

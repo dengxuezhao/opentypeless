@@ -5,7 +5,14 @@ import shutil
 import tempfile
 import unittest
 
-from keyboard_toolbar_contract import HOST_TEST, SERVICE, TOOLBAR, inspect_android
+from keyboard_toolbar_contract import (
+    HOST_TEST,
+    SERVICE,
+    TOOLBAR,
+    VOICE_PANEL,
+    VOICE_PANEL_TEST,
+    inspect_android,
+)
 
 
 class KeyboardToolbarContractTest(unittest.TestCase):
@@ -13,7 +20,7 @@ class KeyboardToolbarContractTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         android = Path(__file__).resolve().parents[1]
-        for relative in (TOOLBAR, SERVICE, HOST_TEST):
+        for relative in (TOOLBAR, VOICE_PANEL, VOICE_PANEL_TEST, SERVICE, HOST_TEST):
             target = self.root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(android / relative, target)
@@ -48,6 +55,34 @@ class KeyboardToolbarContractTest(unittest.TestCase):
                         encoding="utf-8")
         self.assertIn("KBD006_TOOLBAR_CAPABILITY", self.rules())
 
+    def test_rejects_editor_capability_in_voice_panel(self) -> None:
+        path = self.root / VOICE_PANEL
+        path.write_text(path.read_text(encoding="utf-8")
+                        + "\nandroid.view.inputmethod.InputConnection connection;\n",
+                        encoding="utf-8")
+        self.assertIn("KBD006_VOICE_PANEL_CAPABILITY", self.rules())
+
+    def test_rejects_voice_icon_or_touch_target_drift(self) -> None:
+        self.mutate(
+            VOICE_PANEL,
+            "MINIMUM_TOUCH_TARGET_DP = 48",
+            "MINIMUM_TOUCH_TARGET_DP = 40",
+        )
+        self.assertIn("KBD006_VOICE_PANEL_LAYOUT", self.rules())
+
+    def test_rejects_missing_voice_icon_center_assertion(self) -> None:
+        path = self.root / VOICE_PANEL_TEST
+        source = path.read_text(encoding="utf-8")
+        self.assertIn("assertCentered(harness.panel.deleteButton());", source)
+        path.write_text(
+            source.replace(
+                "assertCentered(harness.panel.deleteButton());",
+                "assertTrue(harness.panel.deleteButton().isShown());",
+            ),
+            encoding="utf-8",
+        )
+        self.assertIn("KBD006_VOICE_PANEL_TEST", self.rules())
+
     def test_rejects_duplicate_registration_path(self) -> None:
         self.mutate(
             TOOLBAR,
@@ -69,6 +104,14 @@ class KeyboardToolbarContractTest(unittest.TestCase):
             SERVICE,
             'attachOverflowAnchor("more", moreButton);',
             'attachPrimaryAction("more", moreButton, 48);',
+        )
+        self.assertIn("KBD006_SERVICE_WIRING", self.rules())
+
+    def test_rejects_idle_status_falling_back_to_voice_failure(self) -> None:
+        self.mutate(
+            SERVICE,
+            'message == null || message.isBlank() ? "" : safeMessage(message)',
+            "safeMessage(message)",
         )
         self.assertIn("KBD006_SERVICE_WIRING", self.rules())
 

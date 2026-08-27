@@ -1024,6 +1024,13 @@ overflow 三段容器。模式和持续听写固定在两个 64dp primary slot�
 963/963、architecture gate 113/113、Debug/Release compiled 2/2、strict app/test-host assemble/lint 173-task graph
 PASS。最终两机默认输入法分别恢复 LatinIME/PangIME。Action 配置、候选与 Rime 仍属于后续任务。
 
+**KBD-006 语音页跟进（2026-08-27，`DONE`）：** 语音页改为 capability-free 的响应式控制面板：竖屏采用居中的
+麦克风主按钮、删除/符号工具组和系统键盘/editor action 底栏，宽横屏压成单行；全部触控目标至少 48dp，三个矢量
+图标按真实 bounds 居中。提示覆盖准备、听写和生成阶段，editor action 随字段语义变化。正常空闲状态不再误落到
+“Voice input failed”，非空错误 4.5 秒后自动收起。官方 Typeless 只作为功能层级与视觉节奏参考，没有复制代码或
+资源。architecture preflight、app JVM 1085/1085、Release lint 与三类 APK 构建均 PASS；API35 ARM64 emulator
+相关 Android View 测试 13/13 PASS。当前没有连接 Xiaomi 15，因此本次跟进的该机视觉验收仍属于 KBD-009/TST-010。
+
 **KBD-007 完成说明（2026-08-16，`DONE`）：** 新的 immutable `CandidatePage` 为 Latin/Rime 共用 producer、
 generation、page revision、稳定 candidate ID/expected text 与分页方向；单页最多 16 项、总页数最多 128、单候选
 最多 256 code points。Route-A composition slot 现接入一个默认空且横向滚动的 48dp 候选栏；序号与内容描述可读，

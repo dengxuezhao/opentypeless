@@ -54,6 +54,15 @@
     <string name="ime_cd_open_voice_tab">Open voice input</string>
     <string name="ime_cd_open_keyboard_tab">Open the QWERTY keyboard</string>
     <string name="ime_voice_tap_hint">Tap to speak</string>
+    <string name="ime_voice_finish_hint">Tap again to finish</string>
+    <string name="ime_voice_preparing_hint">Getting the microphone ready…</string>
+    <string name="ime_voice_processing_hint">Finishing your text…</string>
+    <string name="ime_voice_punctuation_key">#+=</string>
+    <string name="ime_voice_action_enter">Enter</string>
+    <string name="ime_voice_action_send">Send</string>
+    <string name="ime_voice_action_search">Search</string>
+    <string name="ime_voice_action_done">Done</string>
+    <string name="ime_voice_action_next">Next</string>
     <string name="ime_key_release_to_finish">Release to insert</string>
     <string name="ime_key_listening">Listening…</string>
     <string name="ime_key_listening_compact">Live</string>

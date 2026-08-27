@@ -42,6 +42,15 @@
     <string name="ime_cd_open_voice_tab">打开语音输入</string>
     <string name="ime_cd_open_keyboard_tab">打开 QWERTY 键盘</string>
     <string name="ime_voice_tap_hint">点击说话</string>
+    <string name="ime_voice_finish_hint">再次点击即可完成</string>
+    <string name="ime_voice_preparing_hint">正在准备麦克风…</string>
+    <string name="ime_voice_processing_hint">正在生成文字…</string>
+    <string name="ime_voice_punctuation_key">符</string>
+    <string name="ime_voice_action_enter">换行</string>
+    <string name="ime_voice_action_send">发送</string>
+    <string name="ime_voice_action_search">搜索</string>
+    <string name="ime_voice_action_done">完成</string>
+    <string name="ime_voice_action_next">下一项</string>
     <string name="ime_key_release_to_finish">松手上屏</string>
     <string name="ime_key_listening">正在听写…</string>
     <string name="ime_key_listening_compact">听写</string>

@@ -3332,6 +3332,13 @@ Debug/unsigned Release/AndroidTest + lint 为 173-task graph PASS。KSP-012 36/3
 real Xiaohè 0、forbidden Rime resource 0、violations 0。最终 hashes 见
 [KBD-006 报告](../2026-08-16-kbd-006-keyboard-toolbar.md)。
 
+2026-08-27 语音页跟进新增 12/12 hostile source contract，其中锁定 capability-free listener、五个固定动作、
+竖屏/宽横屏几何、48dp 目标、矢量图标中心与 quiet-idle 状态；完整 architecture suite 278/278 PASS。
+`VoiceInputPanelInstrumentedTest` 4/4，连同原 toolbar 和 input-mode View 共 13/13 在 API35 ARM64 emulator PASS；
+实际系统 IME 窗口完成浅色竖屏、深色竖屏和深色横屏截图检查。app JVM 1085/1085、Release lint、Debug、unsigned
+Release 与 AndroidTest APK 构建均 PASS。当前没有连接 Xiaomi 15，本次跟进不声明该机已验收。详细证据见
+[KBD-006 语音页跟进报告](../2026-08-27-kbd-006-voice-input-ui.md)。
+
 ---
 
 ## 30. SEC-001 PrivacyPolicyEngine 验收
