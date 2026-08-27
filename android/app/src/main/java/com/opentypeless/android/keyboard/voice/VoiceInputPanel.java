@@ -6,6 +6,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.opentypeless.android.R;
@@ -28,27 +29,36 @@ public final class VoiceInputPanel {
 
         void onEditorAction();
 
-        void onSwitchKeyboard();
+        void onLatinKeyboard();
 
-        void onShowKeyboardPicker();
+        void onChineseKeyboard();
     }
 
     public static final int MINIMUM_TOUCH_TARGET_DP = 48;
     public static final String ROOT_TAG = "opentypeless-voice-input-panel";
+    public static final String BRAND_TAG = "opentypeless-voice-brand";
+    public static final String VOICE_TAB_TAG = "opentypeless-voice-tab";
+    public static final String LATIN_TAB_TAG = "opentypeless-voice-latin-tab";
+    public static final String CHINESE_TAB_TAG = "opentypeless-voice-chinese-tab";
     public static final String MICROPHONE_TAG = "opentypeless-voice-microphone";
     public static final String DELETE_TAG = "opentypeless-voice-delete";
     public static final String PUNCTUATION_TAG = "opentypeless-voice-punctuation";
     public static final String ENTER_TAG = "opentypeless-voice-enter";
-    public static final String SYSTEM_KEYBOARD_TAG = "opentypeless-voice-system-keyboard";
 
     private final Context context;
     private final LinearLayout root;
+    private final TextView brand;
     private final TextView hint;
+    private final CenteredIconButton voiceTab;
+    private final Button latinTab;
+    private final Button chineseTab;
     private final CenteredIconButton microphone;
     private final CenteredIconButton delete;
     private final Button punctuation;
     private final Button enter;
-    private final CenteredIconButton systemKeyboard;
+    private Phase phase = Phase.IDLE;
+    private String statusMessage = "";
+    private boolean statusError;
 
     public VoiceInputPanel(
             Context context,
@@ -63,6 +73,33 @@ public final class VoiceInputPanel {
         root.setTag(ROOT_TAG);
         root.setGravity(Gravity.CENTER);
         root.setPadding(dp(8), dp(4), dp(8), dp(8));
+
+        brand = new TextView(context);
+        brand.setTag(BRAND_TAG);
+        brand.setText(R.string.ime_voice_brand);
+        brand.setTextColor(context.getColor(R.color.ime_on_surface));
+        brand.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f);
+        brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        brand.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        brand.setIncludeFontPadding(false);
+
+        voiceTab = new CenteredIconButton(context);
+        configureSegmentButton(voiceTab, R.string.ime_cd_voice_tab_active);
+        voiceTab.setTag(VOICE_TAB_TAG);
+        voiceTab.setCenteredIconResource(R.drawable.ime_ic_microphone_toolbar);
+        voiceTab.setSelected(true);
+        voiceTab.setEnabled(false);
+
+        latinTab = segmentTextButton(
+                context.getString(R.string.ime_key_engine_latin),
+                context.getString(R.string.ime_cd_open_latin_tab),
+                ignored -> callbacks.onLatinKeyboard());
+        latinTab.setTag(LATIN_TAB_TAG);
+        chineseTab = segmentTextButton(
+                context.getString(R.string.ime_voice_chinese_tab),
+                context.getString(R.string.ime_cd_open_chinese_tab),
+                ignored -> callbacks.onChineseKeyboard());
+        chineseTab.setTag(CHINESE_TAB_TAG);
 
         hint = new TextView(context);
         hint.setText(R.string.ime_voice_tap_hint);
@@ -91,16 +128,6 @@ public final class VoiceInputPanel {
                 ignored -> callbacks.onEditorAction());
         enter.setTag(ENTER_TAG);
 
-        systemKeyboard = iconButton(
-                R.drawable.ime_ic_globe,
-                R.string.ime_cd_switch_keyboard,
-                ignored -> callbacks.onSwitchKeyboard());
-        systemKeyboard.setTag(SYSTEM_KEYBOARD_TAG);
-        systemKeyboard.setOnLongClickListener(ignored -> {
-            callbacks.onShowKeyboardPicker();
-            return true;
-        });
-
         if (wideLandscape) {
             buildWideLandscape();
         } else {
@@ -115,6 +142,22 @@ public final class VoiceInputPanel {
 
     public TextView hint() {
         return hint;
+    }
+
+    public TextView brand() {
+        return brand;
+    }
+
+    public CenteredIconButton voiceTab() {
+        return voiceTab;
+    }
+
+    public Button latinTab() {
+        return latinTab;
+    }
+
+    public Button chineseTab() {
+        return chineseTab;
     }
 
     public CenteredIconButton microphoneButton() {
@@ -133,19 +176,32 @@ public final class VoiceInputPanel {
         return enter;
     }
 
-    public CenteredIconButton systemKeyboardButton() {
-        return systemKeyboard;
+    public void setPhase(Phase phase) {
+        this.phase = Objects.requireNonNull(phase, "phase");
+        renderHint();
+        microphone.setSelected(phase == Phase.LISTENING);
     }
 
-    public void setPhase(Phase phase) {
-        Phase value = Objects.requireNonNull(phase, "phase");
-        hint.setText(switch (value) {
+    public void setStatusMessage(String message, boolean error) {
+        statusMessage = message == null ? "" : message.trim();
+        statusError = error;
+        renderHint();
+    }
+
+    private void renderHint() {
+        if (!statusMessage.isBlank()) {
+            hint.setText(statusMessage);
+            hint.setTextColor(context.getColor(
+                    statusError ? R.color.ime_error : R.color.ime_on_surface_variant));
+            return;
+        }
+        hint.setText(switch (phase) {
             case IDLE -> R.string.ime_voice_tap_hint;
             case PREPARING -> R.string.ime_voice_preparing_hint;
             case LISTENING -> R.string.ime_voice_finish_hint;
             case PROCESSING -> R.string.ime_voice_processing_hint;
         });
-        microphone.setSelected(value == Phase.LISTENING);
+        hint.setTextColor(context.getColor(R.color.ime_on_surface_variant));
     }
 
     public void setEditorActionsEnabled(boolean enabled) {
@@ -154,21 +210,30 @@ public final class VoiceInputPanel {
         enter.setEnabled(enabled);
     }
 
-    public void setSystemSwitchEnabled(boolean enabled) {
-        systemKeyboard.setEnabled(enabled);
+    public void setKeyboardTabsEnabled(boolean enabled) {
+        latinTab.setEnabled(enabled);
+        chineseTab.setEnabled(enabled);
     }
 
     private void buildPortrait() {
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setMinimumHeight(dp(212));
+        // The fixed children and vertical margins total 256dp. Advertising the smaller legacy
+        // minimum lets edge-to-edge IME windows constrain this page and clip the Enter capsule.
+        root.setMinimumHeight(dp(256));
+
+        root.addView(createHeader(), new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(48)));
 
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(24));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(32));
+        hintParams.topMargin = dp(4);
         hintParams.bottomMargin = dp(4);
         root.addView(hint, hintParams);
 
-        LinearLayout primaryRow = horizontalRow();
-        addExact(primaryRow, microphone, 160, 64, 4, 6);
+        FrameLayout primaryStage = new FrameLayout(context);
+        FrameLayout.LayoutParams microphoneParams = new FrameLayout.LayoutParams(
+                dp(168), dp(64), Gravity.CENTER);
+        primaryStage.addView(microphone, microphoneParams);
 
         LinearLayout utilities = new LinearLayout(context);
         utilities.setOrientation(LinearLayout.VERTICAL);
@@ -177,34 +242,39 @@ public final class VoiceInputPanel {
         LinearLayout.LayoutParams punctuationParams = exactParams(48, 48, 0, 0);
         punctuationParams.topMargin = dp(4);
         utilities.addView(punctuation, punctuationParams);
-        primaryRow.addView(utilities, new LinearLayout.LayoutParams(dp(48), dp(100)));
+        FrameLayout.LayoutParams utilityParams = new FrameLayout.LayoutParams(
+                dp(48), dp(100), Gravity.END | Gravity.CENTER_VERTICAL);
+        utilityParams.setMarginEnd(dp(10));
+        primaryStage.addView(utilities, utilityParams);
 
         LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(100));
         primaryParams.bottomMargin = dp(8);
-        root.addView(primaryRow, primaryParams);
+        root.addView(primaryStage, primaryParams);
 
-        LinearLayout actionRow = horizontalRow();
-        addExact(actionRow, systemKeyboard, 48, 48, 0, 4);
-        addExact(actionRow, enter, 112, 48, 4, 4);
-        View balance = new View(context);
-        balance.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        addExact(actionRow, balance, 48, 48, 4, 0);
-        root.addView(actionRow, new LinearLayout.LayoutParams(
+        FrameLayout actionStage = new FrameLayout(context);
+        actionStage.addView(enter, new FrameLayout.LayoutParams(
+                dp(128), dp(48), Gravity.CENTER));
+        root.addView(actionStage, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(48)));
     }
 
     private void buildWideLandscape() {
         root.setOrientation(LinearLayout.HORIZONTAL);
-        root.setMinimumHeight(dp(76));
+        root.setMinimumHeight(dp(88));
 
-        LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(0, dp(56), 1f);
-        hintParams.setMarginEnd(dp(8));
-        root.addView(hint, hintParams);
+        LinearLayout contextColumn = new LinearLayout(context);
+        contextColumn.setOrientation(LinearLayout.VERTICAL);
+        contextColumn.addView(createHeader(), new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(48)));
+        contextColumn.addView(hint, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(24)));
+        LinearLayout.LayoutParams contextParams = new LinearLayout.LayoutParams(dp(238), dp(72));
+        contextParams.setMarginEnd(dp(6));
+        root.addView(contextColumn, contextParams);
 
         LinearLayout actions = horizontalRow();
-        addExact(actions, systemKeyboard, 48, 48, 0, 4);
-        addExact(actions, microphone, 148, 56, 4, 6);
+        addExact(actions, microphone, 148, 56, 0, 6);
         addExact(actions, delete, 48, 48, 0, 2);
         addExact(actions, punctuation, 48, 48, 2, 4);
         addExact(actions, enter, 96, 48, 4, 0);
@@ -225,6 +295,51 @@ public final class VoiceInputPanel {
         microphone.setPadding(0, 0, 0, 0);
         microphone.setElevation(0f);
         microphone.setStateListAnimator(null);
+    }
+
+    private LinearLayout createHeader() {
+        LinearLayout header = horizontalRow();
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(brand, new LinearLayout.LayoutParams(
+                0, dp(48), 1f));
+        LinearLayout segments = horizontalRow();
+        segments.setBackgroundResource(R.drawable.ime_voice_segment_container);
+        addExact(segments, voiceTab, 48, 48, 0, 0);
+        addExact(segments, latinTab, 48, 48, 0, 0);
+        addExact(segments, chineseTab, 48, 48, 0, 0);
+        header.addView(segments, new LinearLayout.LayoutParams(dp(144), dp(48)));
+        return header;
+    }
+
+    private void configureSegmentButton(Button button, int descriptionResource) {
+        button.setContentDescription(context.getString(descriptionResource));
+        button.setBackgroundResource(R.drawable.ime_voice_segment_item_background);
+        button.setBackgroundTintList(null);
+        button.setMinWidth(dp(MINIMUM_TOUCH_TARGET_DP));
+        button.setMinimumWidth(dp(MINIMUM_TOUCH_TARGET_DP));
+        button.setMinHeight(dp(MINIMUM_TOUCH_TARGET_DP));
+        button.setMinimumHeight(dp(MINIMUM_TOUCH_TARGET_DP));
+        button.setPadding(0, 0, 0, 0);
+        button.setElevation(0f);
+        button.setStateListAnimator(null);
+    }
+
+    private Button segmentTextButton(
+            String label,
+            String description,
+            View.OnClickListener listener) {
+        Button button = new Button(context);
+        configureSegmentButton(button, R.string.ime_cd_open_keyboard_tab);
+        button.setText(label);
+        button.setContentDescription(description);
+        button.setAllCaps(false);
+        button.setSingleLine(true);
+        button.setGravity(Gravity.CENTER);
+        button.setIncludeFontPadding(false);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        button.setTextColor(context.getColorStateList(R.color.ime_key_text));
+        button.setOnClickListener(listener);
+        return button;
     }
 
     private CenteredIconButton iconButton(

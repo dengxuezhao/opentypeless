@@ -209,6 +209,7 @@ public final class KeyboardCandidateBar {
         button.setAllCaps(false);
         button.setSingleLine(true);
         button.setGravity(Gravity.CENTER);
+        button.setIncludeFontPadding(false);
         button.setTextSize(18);
         button.setAutoSizeTextTypeUniformWithConfiguration(
                 12, 18, 1, TypedValue.COMPLEX_UNIT_SP);

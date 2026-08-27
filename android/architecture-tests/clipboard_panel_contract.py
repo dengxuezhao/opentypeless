@@ -293,12 +293,19 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         (tests[PANEL_TEST], "categoryAndQwertySearchFilterTheBoundedHistory"),
         (tests[PANEL_TEST], "clearRequiresTwoClicksAndLifecycleDropsEveryBodyAndQuery"),
         (tests[HOST_TEST], "selectedImeClipboardPastesCurrentTextAndHidesInSensitiveFieldWhenRequested"),
-        (tests[HOST_TEST], "no-learning More menu exposed clipboard history"),
+        (tests[HOST_TEST], "Set<String> clipboardAction"),
+        (tests[HOST_TEST], "focusField(R.id.host_no_learning)"),
     )
     if any(token not in source for source, token in required_tests):
         violations.append(Violation(
             "KBD011_TEST_COVERAGE",
             "tests must cover bounds, crypto, canonical format, search, stale views and privacy",
+        ))
+    if tests[HOST_TEST].count(
+            "awaitImeLabelsAbsent(automation, expectedPackage, clipboardAction);") != 2:
+        violations.append(Violation(
+            "KBD011_TEST_COVERAGE",
+            "sensitive and no-learning fields must both hide the direct clipboard action",
         ))
 
     adr_compact = _compact(adr)

@@ -19,6 +19,36 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class KeyboardToolbarLayoutInstrumentedTest {
     @Test
+    public void qwertyToolbarKeepsLeadingFunctionAndThreeRightActions() {
+        onMain(() -> {
+            Harness harness = new Harness();
+            Button functions = action(harness.context, "Functions");
+            TextView status = new TextView(harness.context);
+            Button clipboard = action(harness.context, "Clipboard");
+            Button emoji = action(harness.context, "Emoji");
+            Button language = action(harness.context, "Language");
+
+            harness.layout.attachStatusText(status);
+            harness.layout.attachLeadingAction("functions", functions);
+            harness.layout.attachPrimaryAction("clipboard", clipboard, 48);
+            harness.layout.attachPrimaryAction("emoji", emoji, 48);
+            harness.layout.attachOverflowAnchor("language", language);
+
+            assertEquals(3, harness.root.getChildCount());
+            assertEquals(functions, harness.layout.statusSlot().getChildAt(0));
+            assertEquals(clipboard, harness.layout.primarySlot().getChildAt(0));
+            assertEquals(emoji, harness.layout.primarySlot().getChildAt(1));
+            assertEquals(language, harness.root.getChildAt(2));
+            assertEquals(KeyboardToolbarLayout.Placement.LEADING,
+                    harness.layout.placementOf("functions"));
+            assertEquals(KeyboardToolbarLayout.Placement.PRIMARY,
+                    harness.layout.placementOf("clipboard"));
+            assertEquals(KeyboardToolbarLayout.Placement.OVERFLOW,
+                    harness.layout.placementOf("language"));
+        });
+    }
+
+    @Test
     public void statusPrimaryAndOverflowUseStableOrderedSlots() {
         onMain(() -> {
             Harness harness = new Harness();

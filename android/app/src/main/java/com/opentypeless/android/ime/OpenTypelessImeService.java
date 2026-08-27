@@ -153,6 +153,7 @@ public final class OpenTypelessImeService extends InputMethodService
     private static final int MENU_VOICE_DIAGNOSTICS = 211;
     private static final int MENU_CLIPBOARD = 212;
     private static final int MENU_EMOJI = 213;
+    private static final int MENU_VOICE_INPUT = 214;
     private static final int MENU_PUNCTUATION_BASE = 300;
     private static final long TRANSIENT_ERROR_STATUS_MILLIS = 4_500L;
     private static final long DISCARD_CONFIRM_WINDOW_MILLIS = 10_000L;
@@ -939,6 +940,9 @@ public final class OpenTypelessImeService extends InputMethodService
     private VoiceInputPanel voiceInputPanel;
     private Button modeButton;
     private CenteredIconButton moreButton;
+    private CenteredIconButton clipboardToolbarButton;
+    private CenteredIconButton emojiToolbarButton;
+    private CenteredIconButton languageToolbarButton;
     private Button holdToTalkButton;
     private Button switchKeyboardButton;
     private Button punctuationButton;
@@ -960,6 +964,7 @@ public final class OpenTypelessImeService extends InputMethodService
     private EmojiRecents visibleEmojiRecents = EmojiRecents.empty();
     private boolean lastKeyboardInsertApplied;
     private boolean compactToolbar;
+    private boolean candidateToolbarReplacementActive;
     private KeyboardFieldProfile currentKeyboardFieldProfile = KeyboardFieldProfile.GENERAL;
     private KeyboardEngineSelection keyboardEngineSelection = KeyboardEngineSelection.latinOnly();
     private RimeResourceStore.RuntimePackage availableRimePackage;
@@ -1161,7 +1166,9 @@ public final class OpenTypelessImeService extends InputMethodService
         });
 
         LinearLayout toolbar = shellFrame.toolbar();
-        toolbar.setPadding(dp(2), 0, dp(2), dp(4));
+        // The candidate strip replaces this row in-place. Both surfaces must have the same
+        // 48dp outer height so composition start/finish never moves the QWERTY grid vertically.
+        toolbar.setPadding(dp(2), 0, dp(2), 0);
         keyboardToolbarLayout = new KeyboardToolbarLayout(this, toolbar);
 
         voicePulse = new VoicePulseView(this);
@@ -1182,17 +1189,58 @@ public final class OpenTypelessImeService extends InputMethodService
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         keyboardToolbarLayout.attachStatusText(status);
 
-        modeButton = key("", getString(R.string.ime_cd_choose_mode), 1f,
-                ignored -> showModeMenu());
-        keyboardToolbarLayout.attachPrimaryAction("voice.mode", modeButton, 64);
         microphone = key(getString(R.string.ime_key_long_dictation_compact),
                 getString(R.string.ime_cd_start_long_dictation), 2f,
                 ignored -> toggleRecording(DictationRequest.CaptureMode.CONTINUOUS));
         moreButton = key("", getString(R.string.ime_cd_more), 1f, this::showMoreMenu);
         setCenteredIcon(moreButton, R.drawable.ime_ic_more_vertical);
-        keyboardToolbarLayout.attachOverflowAnchor("more", moreButton);
+        if (routeACandidateBar) {
+            modeButton = null;
+            moreButton.setContentDescription(getString(R.string.ime_cd_function_panel));
+            keyboardToolbarLayout.attachLeadingAction("functions", moreButton);
+
+            clipboardToolbarButton = key(
+                    "",
+                    getString(R.string.ime_cd_open_clipboard),
+                    1f,
+                    ignored -> showClipboardPanel());
+            setCenteredIcon(clipboardToolbarButton, R.drawable.ime_ic_clipboard);
+            keyboardToolbarLayout.attachPrimaryAction(
+                    "clipboard", clipboardToolbarButton, 48);
+
+            emojiToolbarButton = key(
+                    "",
+                    getString(R.string.ime_cd_open_emoji),
+                    1f,
+                    ignored -> showEmojiPanel());
+            setCenteredIcon(emojiToolbarButton, R.drawable.ime_ic_emoji);
+            keyboardToolbarLayout.attachPrimaryAction("emoji", emojiToolbarButton, 48);
+
+            languageToolbarButton = key(
+                    getString(R.string.ime_key_engine_latin),
+                    getString(R.string.ime_cd_engine_latin),
+                    1f,
+                    ignored -> switchInputEngine());
+            languageToolbarButton.setOnLongClickListener(ignored -> {
+                showKeyboardPicker();
+                return true;
+            });
+            keyboardToolbarLayout.attachOverflowAnchor(
+                    "language", languageToolbarButton);
+        } else {
+            clipboardToolbarButton = null;
+            emojiToolbarButton = null;
+            languageToolbarButton = null;
+            modeButton = key("", getString(R.string.ime_cd_choose_mode), 1f,
+                    ignored -> showModeMenu());
+            keyboardToolbarLayout.attachPrimaryAction("voice.mode", modeButton, 64);
+            keyboardToolbarLayout.attachPrimaryAction(
+                    "voice.long_dictation", microphone, 64);
+            keyboardToolbarLayout.attachOverflowAnchor("more", moreButton);
+        }
         applyKeyboardToolbarPrivacy();
         refreshModeButton();
+        refreshToolbarEngineButton();
 
         LinearLayout compositionStage = new LinearLayout(this);
         compositionStage.setOrientation(LinearLayout.VERTICAL);
@@ -1356,15 +1404,15 @@ public final class OpenTypelessImeService extends InputMethodService
                         hideClipboardPanel();
                         hideEmojiPanel();
                         refreshStatusVisibilityForInputMode(mode);
+                        refreshRouteAToolbarVisibility(mode);
                         if (mode == KeyboardInputModeLayout.Mode.VOICE
                                 && latinKeyboardLayout != null) {
                             latinKeyboardLayout.cancelTransientGestures();
                         }
                     });
-            keyboardToolbarLayout.attachPrimaryAction(
-                    "input.mode", keyboardInputModeLayout.toggleButton(), 48);
             keyboardInputModeLayout.setVoiceAvailable(!sensitiveField);
             keyboardTypingSurface = keyboardInputModeLayout.root();
+            refreshRouteAToolbarVisibility(keyboardInputModeLayout.mode());
         } else {
             keyboardInputModeLayout = null;
             keyboardTypingSurface = typing;
@@ -1463,13 +1511,13 @@ public final class OpenTypelessImeService extends InputMethodService
                     }
 
                     @Override
-                    public void onSwitchKeyboard() {
-                        switchSystemKeyboard();
+                    public void onLatinKeyboard() {
+                        selectKeyboardPage(KeyboardEngineSelection.Engine.LATIN);
                     }
 
                     @Override
-                    public void onShowKeyboardPicker() {
-                        showKeyboardPicker();
+                    public void onChineseKeyboard() {
+                        selectKeyboardPage(KeyboardEngineSelection.Engine.RIME);
                     }
                 });
         return voiceInputPanel.root();
@@ -3688,8 +3736,21 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void setCandidateToolbarReplacementActive(boolean active) {
+        candidateToolbarReplacementActive = active;
+        refreshRouteAToolbarVisibility(keyboardInputModeLayout == null
+                ? null
+                : keyboardInputModeLayout.mode());
+    }
+
+    private void refreshRouteAToolbarVisibility(KeyboardInputModeLayout.Mode mode) {
         KeyboardToolbarLayout toolbar = keyboardToolbarLayout;
-        if (toolbar != null) toolbar.root().setVisibility(active ? View.GONE : View.VISIBLE);
+        if (toolbar == null) return;
+        boolean qwertySurface = keyboardInputModeLayout == null
+                || mode == KeyboardInputModeLayout.Mode.QWERTY;
+        toolbar.root().setVisibility(
+                qwertySurface && !candidateToolbarReplacementActive
+                        ? View.VISIBLE
+                        : View.GONE);
     }
 
     private void finishEmptyRimeComposition(RimeCompositionLease lease) {
@@ -3908,6 +3969,7 @@ public final class OpenTypelessImeService extends InputMethodService
         if (latinKeyboardLayout != null) {
             latinKeyboardLayout.setEngineSelection(keyboardEngineSelection);
         }
+        refreshToolbarEngineButton();
         if (keyboardEngineSelection.active() == KeyboardEngineSelection.Engine.RIME) {
             prepareRimeSession();
         }
@@ -4371,33 +4433,66 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void switchInputEngine() {
+        KeyboardEngineSelection.Engine requested =
+                keyboardEngineSelection.active() == KeyboardEngineSelection.Engine.LATIN
+                        ? KeyboardEngineSelection.Engine.RIME
+                        : KeyboardEngineSelection.Engine.LATIN;
+        activateInputEngine(requested);
+    }
+
+    private void selectKeyboardPage(KeyboardEngineSelection.Engine requested) {
+        if (!activateInputEngine(requested)) return;
+        KeyboardInputModeLayout layout = keyboardInputModeLayout;
+        if (layout != null) layout.select(KeyboardInputModeLayout.Mode.QWERTY);
+    }
+
+    private boolean activateInputEngine(KeyboardEngineSelection.Engine requested) {
+        java.util.Objects.requireNonNull(requested, "requested");
         if (activeTarget != null || voiceController.state() != VoiceController.State.IDLE) {
             setStatus(R.string.ime_status_finish_before_engine_change, true);
-            return;
+            return false;
+        }
+        if (requested == keyboardEngineSelection.active()) {
+            refreshToolbarEngineButton();
+            return true;
+        }
+        if (!keyboardEngineSelection.available().contains(requested)) {
+            setStatus(R.string.ime_status_second_engine_unavailable, true);
+            return false;
         }
         if (keyboardEngineSelection.active() == KeyboardEngineSelection.Engine.RIME
                 && activeRimeLease != null
                 && !finishRimeCompositionForEngineSwitch()) {
             setStatus(R.string.ime_status_composition_cleanup_failed, true);
-            return;
+            return false;
         }
-        KeyboardEngineSelection.CycleResult result = keyboardEngineSelection.cycle();
-        if (result instanceof KeyboardEngineSelection.Unavailable) {
-            setStatus(R.string.ime_status_second_engine_unavailable, true);
-            return;
-        }
-        keyboardEngineSelection = result.state();
+        keyboardEngineSelection = keyboardEngineSelection.withAvailabilityAndPreference(
+                keyboardEngineSelection.available(), requested);
         PROCESS_PREFERRED_KEYBOARD_ENGINE.set(keyboardEngineSelection.active());
         if (keyboardCandidateBar != null) keyboardCandidateBar.clear();
         if (latinKeyboardLayout != null) {
             latinKeyboardLayout.setEngineSelection(keyboardEngineSelection);
         }
+        refreshToolbarEngineButton();
         setStatus(keyboardEngineSelection.active() == KeyboardEngineSelection.Engine.LATIN
                 ? R.string.ime_status_engine_latin
                 : R.string.ime_status_engine_rime, false);
         if (keyboardEngineSelection.active() == KeyboardEngineSelection.Engine.RIME) {
             prepareRimeSession();
         }
+        return true;
+    }
+
+    private void refreshToolbarEngineButton() {
+        CenteredIconButton button = languageToolbarButton;
+        if (button == null) return;
+        boolean latin = keyboardEngineSelection.active() == KeyboardEngineSelection.Engine.LATIN;
+        button.setText(latin
+                ? R.string.ime_key_engine_latin
+                : R.string.ime_key_engine_rime);
+        button.setContentDescription(getString(latin
+                ? R.string.ime_cd_engine_latin
+                : R.string.ime_cd_engine_rime));
     }
 
     private void openSettings() {
@@ -4497,6 +4592,15 @@ public final class OpenTypelessImeService extends InputMethodService
                             : R.string.ime_menu_discard_current);
         } else {
             LastVoiceCommit commit = lastCommit;
+            if (keyboardInputModeLayout != null
+                    && keyboardToolbarPrivacy.voiceVisible()
+                    && keyboardInputModeLayout.mode() == KeyboardInputModeLayout.Mode.QWERTY) {
+                popup.getMenu().add(
+                        Menu.NONE,
+                        MENU_VOICE_INPUT,
+                        -1,
+                        R.string.ime_menu_voice_input);
+            }
             if (commit != null) {
                 popup.getMenu().add(
                         Menu.NONE,
@@ -4598,6 +4702,11 @@ public final class OpenTypelessImeService extends InputMethodService
                 case MENU_UNDO -> undoLastVoiceCommit();
                 case MENU_CLIPBOARD -> showClipboardPanel();
                 case MENU_EMOJI -> showEmojiPanel();
+                case MENU_VOICE_INPUT -> {
+                    if (keyboardInputModeLayout != null) {
+                        keyboardInputModeLayout.select(KeyboardInputModeLayout.Mode.VOICE);
+                    }
+                }
                 default -> {
                     return false;
                 }
@@ -4639,7 +4748,17 @@ public final class OpenTypelessImeService extends InputMethodService
     private void applyKeyboardToolbarPrivacy() {
         KeyboardToolbarLayout toolbar = keyboardToolbarLayout;
         boolean voiceVisible = keyboardToolbarPrivacy.voiceVisible();
-        if (toolbar != null) toolbar.setActionVisible("voice.mode", voiceVisible);
+        if (toolbar != null) {
+            if (modeButton != null) {
+                toolbar.setActionVisible("voice.mode", voiceVisible);
+            }
+            if (clipboardToolbarButton != null) {
+                toolbar.setActionVisible("clipboard", clipboardHistoryAllowed());
+            }
+            if (emojiToolbarButton != null) {
+                toolbar.setActionVisible("emoji", emojiPrivacy.panelVisible());
+            }
+        }
         if (keyboardInputModeLayout != null) {
             keyboardInputModeLayout.setVoiceAvailable(voiceVisible);
         }
@@ -5151,7 +5270,16 @@ public final class OpenTypelessImeService extends InputMethodService
         if (latinKeyboardLayout != null) latinKeyboardLayout.setInputEnabled(editorEnabled);
         if (voiceInputPanel != null) {
             voiceInputPanel.setEditorActionsEnabled(editorEnabled);
-            voiceInputPanel.setSystemSwitchEnabled(editorEnabled && activeTarget == null);
+            voiceInputPanel.setKeyboardTabsEnabled(editorEnabled && activeTarget == null);
+        }
+        if (clipboardToolbarButton != null) {
+            clipboardToolbarButton.setEnabled(editorEnabled && clipboardHistoryAllowed());
+        }
+        if (emojiToolbarButton != null) {
+            emojiToolbarButton.setEnabled(editorEnabled && emojiPrivacy.panelVisible());
+        }
+        if (languageToolbarButton != null) {
+            languageToolbarButton.setEnabled(editorEnabled && activeTarget == null);
         }
         if (keyboardCandidateBar != null) {
             keyboardCandidateBar.setInteractionEnabled(editorEnabled);
@@ -5857,6 +5985,7 @@ public final class OpenTypelessImeService extends InputMethodService
         String safe = message == null || message.isBlank() ? "" : safeMessage(message);
         status.setText(safe);
         status.setTextColor(getColor(error ? R.color.ime_error : R.color.ime_on_surface_variant));
+        if (voiceInputPanel != null) voiceInputPanel.setStatusMessage(safe, error);
         refreshStatusVisibilityForInputMode(keyboardInputModeLayout == null
                 ? null
                 : keyboardInputModeLayout.mode());
@@ -5878,6 +6007,7 @@ public final class OpenTypelessImeService extends InputMethodService
             return;
         }
         status.setText("");
+        if (voiceInputPanel != null) voiceInputPanel.setStatusMessage("", false);
         refreshStatusVisibilityForInputMode(keyboardInputModeLayout == null
                 ? null
                 : keyboardInputModeLayout.mode());
@@ -5890,7 +6020,7 @@ public final class OpenTypelessImeService extends InputMethodService
         // Voice pipeline details belong to the voice surface. Keeping a stale recognition
         // failure beside ordinary typing controls makes the QWERTY page look broken and steals
         // the toolbar's visual hierarchy, while the same message remains available on return.
-        boolean visible = hasMessage && mode != KeyboardInputModeLayout.Mode.QWERTY;
+        boolean visible = hasMessage && keyboardInputModeLayout == null;
         status.setAccessibilityLiveRegion(visible
                 ? View.ACCESSIBILITY_LIVE_REGION_POLITE
                 : View.ACCESSIBILITY_LIVE_REGION_NONE);

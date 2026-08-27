@@ -87,15 +87,17 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "voidonDelete()",
         "voidonPunctuation(Viewanchor)",
         "voidonEditorAction()",
-        "voidonSwitchKeyboard()",
-        "voidonShowKeyboardPicker()",
-        "root.setMinimumHeight(dp(212))",
-        "root.setMinimumHeight(dp(76))",
+        "voidonLatinKeyboard()",
+        "voidonChineseKeyboard()",
+        "root.setMinimumHeight(dp(256))",
+        "root.setMinimumHeight(dp(88))",
+        "brand.setText(R.string.ime_voice_brand)",
+        "voiceTab.setSelected(true)",
+        "FrameLayout.LayoutParams(dp(168),dp(64),Gravity.CENTER)",
         "microphone.setCenteredIconResource(R.drawable.ime_ic_microphone)",
         "R.drawable.ime_ic_backspace",
-        "R.drawable.ime_ic_globe",
         "setEditorActionsEnabled(booleanenabled)",
-        "setSystemSwitchEnabled(booleanenabled)",
+        "setKeyboardTabsEnabled(booleanenabled)",
     )
     if any(token not in voice_compact for token in voice_tokens):
         violations.append(Violation(
@@ -109,7 +111,9 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "phaseAndAvailabilityChangeOnlyPresentationAndButtonState",
         "assertCentered(harness.panel.microphoneButton())",
         "assertCentered(harness.panel.deleteButton())",
-        "assertCentered(harness.panel.systemKeyboardButton())",
+        "absoluteCenterX(harness.panel.microphoneButton())) <= 1",
+        "harness.panel.latinTab().performClick()",
+        "harness.panel.chineseTab().performClick()",
     )
     if any(token not in voice_panel_test for token in voice_test_tokens):
         violations.append(Violation(
@@ -121,11 +125,12 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     toolbar_tokens = (
         "MINIMUM_TOUCH_TARGET_DP=48",
         "MAXIMUM_PRIMARY_ACTIONS=2;",
-        "enumPlacement{PRIMARY,OVERFLOW}",
+        "enumPlacement{LEADING,PRIMARY,OVERFLOW}",
         "primarytoolbarisfull;useoverflow",
         "toolbaractionneedsa contentdescription".replace(" ", ""),
         "action.setMinimumWidth(dp(MINIMUM_TOUCH_TARGET_DP))",
         "action.setMinimumHeight(dp(MINIMUM_TOUCH_TARGET_DP))",
+        "attachLeadingAction(StringplacementId,Viewaction)",
         "attachPrimaryAction(StringplacementId,Viewaction,intwidthDp)",
         "attachOverflowAnchor(StringplacementId,Viewaction)",
     )
@@ -147,9 +152,12 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     service_tokens = (
         "compactToolbar = compactLayout || landscape;",
         "new KeyboardToolbarLayout(this, toolbar)",
-        'attachPrimaryAction("voice.mode", modeButton, 64)',
-        'attachPrimaryAction(\n                    "input.mode", keyboardInputModeLayout.toggleButton(), 48)',
-        'attachOverflowAnchor("more", moreButton)',
+        'attachLeadingAction("functions", moreButton)',
+        'attachPrimaryAction(\n                    "clipboard", clipboardToolbarButton, 48)',
+        'attachPrimaryAction("emoji", emojiToolbarButton, 48)',
+        'attachOverflowAnchor(\n                    "language", languageToolbarButton)',
+        "toolbar.setPadding(dp(2), 0, dp(2), 0)",
+        "setCandidateToolbarReplacementActive(visible)",
         "new KeyboardInputModeLayout(",
         "createVoiceInputPage(wideVoiceLandscape)",
         "new VoiceInputPanel(",
@@ -162,8 +170,9 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     if (
         any(token not in service for token in service_tokens)
         or service.count("new KeyboardToolbarLayout(this, toolbar)") != 1
-        or service.count("attachPrimaryAction(") != 2
-        or service.count("attachOverflowAnchor(") != 1
+        or service.count("attachLeadingAction(") != 1
+        or service.count("attachPrimaryAction(") != 4
+        or service.count("attachOverflowAnchor(") != 2
         or "undoButton" in service
         or "addWeighted(toolbar" in service
         or "addFixed(toolbar" in service
@@ -171,7 +180,7 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     ):
         violations.append(Violation(
             "KBD006_SERVICE_WIRING",
-            "service must keep two bounded toolbar actions, one overflow anchor, one bounded Voice page and no transient Undo button",
+            "service must keep the reviewed Route-A toolbar, equal-height candidate replacement, bounded Voice page and legacy fallback",
         ))
 
     test_tokens = (
@@ -179,13 +188,13 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "selectedImeToolbarKeepsFixedFortyEightDpActionsWhenRequested",
         "bounds.width() >= minimumPx",
         "bounds.height() >= minimumPx",
-        "mode action missing from selected IME toolbar",
-        "overflow action missing from selected IME toolbar",
+        "function action missing from selected IME toolbar",
+        "language action missing from selected IME toolbar",
     )
     if any(token not in host_test for token in test_tokens):
         violations.append(Violation(
             "KBD006_SYSTEM_TEST",
-            "test host must verify the selected IME's three fixed 48dp toolbar actions",
+            "test host must verify the selected IME's four fixed 48dp toolbar actions",
         ))
     return tuple(violations)
 

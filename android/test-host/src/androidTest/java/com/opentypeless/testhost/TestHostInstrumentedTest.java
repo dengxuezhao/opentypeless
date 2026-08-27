@@ -403,7 +403,10 @@ public final class TestHostInstrumentedTest {
                 | AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS;
         automation.setServiceInfo(serviceInfo);
 
-        boolean[] found = new boolean[3];
+        activateImeNode(automation, expectedPackage, Set.of(
+                "Open the English keyboard", "打开英文键盘"), false);
+
+        boolean[] found = new boolean[4];
         // Accessibility window coordinates can contract an exact View edge by one physical
         // pixel during OEM window composition. The production View test and source gate retain
         // the exact 48dp requirement; this system-level readback tolerates only that 1px rounding.
@@ -413,13 +416,14 @@ public final class TestHostInstrumentedTest {
         long deadline = SystemClock.uptimeMillis() + 5_000L;
         do {
             scanToolbarActions(automation, expectedPackage, minimumPx, found);
-            if (found[0] && found[1] && found[2]) break;
+            if (found[0] && found[1] && found[2] && found[3]) break;
             SystemClock.sleep(100L);
         } while (SystemClock.uptimeMillis() < deadline);
 
-        assertTrue("mode action missing from selected IME toolbar", found[0]);
-        assertTrue("long-dictation action missing from selected IME toolbar", found[1]);
-        assertTrue("overflow action missing from selected IME toolbar", found[2]);
+        assertTrue("function action missing from selected IME toolbar", found[0]);
+        assertTrue("clipboard action missing from selected IME toolbar", found[1]);
+        assertTrue("Emoji action missing from selected IME toolbar", found[2]);
+        assertTrue("language action missing from selected IME toolbar", found[3]);
     }
 
     @Test
@@ -440,15 +444,16 @@ public final class TestHostInstrumentedTest {
         focusField(R.id.host_plain_text);
 
         awaitImeLabel(automation, expectedPackage, Set.of(
-                "Open voice input", "打开语音输入"));
+                "Voice input is active", "当前为语音输入"));
         awaitImeLabel(automation, expectedPackage, Set.of(
                 "Start continuous long-text dictation",
                 "开始持续长文本听写",
                 "Long dictation is temporarily unavailable",
                 "长文本听写暂时不可用"));
         activateImeNode(automation, expectedPackage, Set.of(
-                "Open the QWERTY keyboard", "打开 QWERTY 键盘"), false);
-        awaitImeLabel(automation, expectedPackage, Set.of("q"));
+                "Open the English keyboard", "打开英文键盘"), false);
+        awaitImeLabel(automation, expectedPackage, Set.of(
+                "q; touch and hold for 1", "q；长按输入 1"));
         awaitImeLabel(automation, expectedPackage, Set.of("Delete", "删除"));
     }
 
@@ -476,16 +481,18 @@ public final class TestHostInstrumentedTest {
         // dismiss a just-created input window. Re-serve the same ordinary field after the flags
         // are stable; focusField deliberately separates restartInput and showSoftInput.
         focusField(R.id.host_plain_text);
+        activateImeNode(automation, expectedPackage, Set.of(
+                "Open the English keyboard", "打开英文键盘"), false);
         assertToolbarPrivacyState(
-                automation, expectedPackage, R.id.host_plain_text, true, false);
+                automation, expectedPackage, R.id.host_plain_text, true, true);
         focusField(R.id.host_otp);
         assertToolbarPrivacyState(automation, expectedPackage, R.id.host_otp, false, true);
         focusField(R.id.host_no_learning);
         assertToolbarPrivacyState(
-                automation, expectedPackage, R.id.host_no_learning, true, false);
+                automation, expectedPackage, R.id.host_no_learning, false, true);
         focusField(R.id.host_plain_text);
         assertToolbarPrivacyState(
-                automation, expectedPackage, R.id.host_plain_text, true, false);
+                automation, expectedPackage, R.id.host_plain_text, true, true);
     }
 
     @Test
@@ -510,35 +517,22 @@ public final class TestHostInstrumentedTest {
                     | AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS;
             automation.setServiceInfo(serviceInfo);
             focusField(R.id.host_plain_text);
-
             activateImeNode(automation, expectedPackage, Set.of(
-                    "More voice keyboard actions", "更多语音键盘操作"), false);
-            awaitPackageLabel(automation, expectedPackage, Set.of("Clipboard", "剪贴板"));
-            activatePackageNode(
-                    automation, expectedPackage, Set.of("Clipboard", "剪贴板"), true);
+                    "Open the English keyboard", "打开英文键盘"), false);
+
+            Set<String> clipboardAction = Set.of(
+                    "Open clipboard history", "打开剪贴板历史");
+            activateImeNode(automation, expectedPackage, clipboardAction, false);
             awaitImeLabel(automation, expectedPackage, Set.of("clipboard fixture"));
             activateImeNode(
                     automation, expectedPackage, Set.of("clipboard fixture"), true);
             assertPlainTextEventually("clipboard fixture", automation, expectedPackage);
 
             focusField(R.id.host_otp);
-            activateImeNode(automation, expectedPackage, Set.of(
-                    "More voice keyboard actions", "更多语音键盘操作"), false);
-            awaitPackageLabel(automation, expectedPackage, Set.of("Settings", "设置"));
-            Set<String> sensitiveMenu = packageLabels(automation, expectedPackage);
-            assertFalse("sensitive More menu exposed clipboard: " + sensitiveMenu,
-                    sensitiveMenu.contains("Clipboard") || sensitiveMenu.contains("剪贴板"));
-            assertTrue("could not dismiss sensitive More menu",
-                    automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK));
-            SystemClock.sleep(200);
+            awaitImeLabelsAbsent(automation, expectedPackage, clipboardAction);
 
             focusField(R.id.host_no_learning);
-            activateImeNode(automation, expectedPackage, Set.of(
-                    "More voice keyboard actions", "更多语音键盘操作"), false);
-            awaitPackageLabel(automation, expectedPackage, Set.of("Settings", "设置"));
-            Set<String> noLearningMenu = packageLabels(automation, expectedPackage);
-            assertFalse("no-learning More menu exposed clipboard history: " + noLearningMenu,
-                    noLearningMenu.contains("Clipboard") || noLearningMenu.contains("剪贴板"));
+            awaitImeLabelsAbsent(automation, expectedPackage, clipboardAction);
         } finally {
             instrumentation.runOnMainSync(clipboard::clearPrimaryClip);
         }
@@ -562,9 +556,9 @@ public final class TestHostInstrumentedTest {
         focusField(R.id.host_plain_text);
 
         activateImeNode(automation, expectedPackage, Set.of(
-                "More voice keyboard actions", "更多语音键盘操作"), false);
-        awaitPackageLabel(automation, expectedPackage, Set.of("Emoji"));
-        activatePackageNode(automation, expectedPackage, Set.of("Emoji"), true);
+                "Open the English keyboard", "打开英文键盘"), false);
+        activateImeNode(automation, expectedPackage, Set.of(
+                "Open Emoji", "打开 Emoji"), false);
         awaitImeLabel(automation, expectedPackage, Set.of(
                 "Smileys and emotion", "笑脸与情绪"));
         activateImeNode(automation, expectedPackage, Set.of(
@@ -580,16 +574,14 @@ public final class TestHostInstrumentedTest {
         assertFieldTextEventually(R.id.host_plain_text, "", automation, expectedPackage);
         activateImeNode(automation, expectedPackage, Set.of(
                 "Show Emoji search results", "显示 Emoji 搜索结果"), false);
-        awaitImeLabel(automation, expectedPackage, Set.of("Insert dog, 🐕"));
-        activateImeNode(automation, expectedPackage, Set.of("Insert dog, 🐕"), false);
+        awaitImeLabel(automation, expectedPackage, Set.of("Insert guide dog, 🦮"));
+        activateImeNode(automation, expectedPackage, Set.of("Insert guide dog, 🦮"), false);
         assertFieldTextEventually(
-                R.id.host_plain_text, "🐕", automation, expectedPackage);
+                R.id.host_plain_text, "🦮", automation, expectedPackage);
 
         focusField(R.id.host_password);
         activateImeNode(automation, expectedPackage, Set.of(
-                "More voice keyboard actions", "更多语音键盘操作"), false);
-        awaitPackageLabel(automation, expectedPackage, Set.of("Emoji"));
-        activatePackageNode(automation, expectedPackage, Set.of("Emoji"), true);
+                "Open Emoji", "打开 Emoji"), false);
         awaitImeLabel(automation, expectedPackage, Set.of("😀"));
         Set<String> sensitivePanel = inputMethodLabels(automation, expectedPackage);
         assertFalse("sensitive Emoji panel exposed recents: " + sensitivePanel,
@@ -617,7 +609,7 @@ public final class TestHostInstrumentedTest {
         automation.setServiceInfo(serviceInfo);
         focusField(R.id.host_plain_text);
         activateImeNode(automation, expectedPackage, Set.of(
-                "Open the QWERTY keyboard", "打开 QWERTY 键盘"), false);
+                "Open the Chinese keyboard", "打开中文键盘"), false);
         Set<String> latinActive = Set.of(
                 "Latin input active; switch to Chinese input",
                 "当前为拉丁输入；切换到中文输入");
@@ -676,7 +668,7 @@ public final class TestHostInstrumentedTest {
         instrumentation.runOnMainSync(() -> plain.setText(""));
         focusField(R.id.host_plain_text);
         activateImeNode(automation, expectedPackage, Set.of(
-                "Open the QWERTY keyboard", "打开 QWERTY 键盘"), false);
+                "Open the Chinese keyboard", "打开中文键盘"), false);
 
         Set<String> latinActive = Set.of(
                 "Latin input active; switch to Chinese input",
@@ -694,7 +686,7 @@ public final class TestHostInstrumentedTest {
         }
         awaitImeLabel(automation, expectedPackage, rimeActive);
         Set<String> toolbarAnchor = Set.of(
-                "More voice keyboard actions", "更多语音键盘操作");
+                "Open keyboard functions", "打开键盘功能面板");
         awaitImeLabel(automation, expectedPackage, toolbarAnchor);
         Set<String> nKey = Set.of(
                 "n; touch and hold for !", "n；长按输入 !");
@@ -975,27 +967,34 @@ public final class TestHostInstrumentedTest {
             UiAutomation automation,
             String expectedPackage,
             int fieldId,
-            boolean voiceVisible,
-            boolean sensitiveStatusVisible) {
+            boolean clipboardVisible,
+            boolean emojiVisible) throws Exception {
+        Set<String> initialLabels = inputMethodLabels(automation, expectedPackage);
+        if (initialLabels.contains("Voice input is active")
+                || initialLabels.contains("当前为语音输入")) {
+            activateImeNode(automation, expectedPackage, Set.of(
+                    "Open the English keyboard", "打开英文键盘"), false);
+        }
         long deadline = SystemClock.uptimeMillis() + 5_000L;
         long nextShowRetry = 0L;
         Set<String> labels = Set.of();
         do {
             labels = inputMethodLabels(automation, expectedPackage);
-            boolean hasMode = labels.stream().anyMatch(value ->
-                    value.startsWith("Voice processing mode:")
-                            || value.startsWith("当前语音处理模式："));
-            boolean hasVoice = labels.contains("Start continuous long-text dictation")
-                    || labels.contains("开始持续长文本听写");
-            boolean hasMore = labels.contains("More voice keyboard actions")
-                    || labels.contains("更多语音键盘操作");
-            boolean hasSensitiveStatus = labels.contains(
-                    "Voice input disabled in this sensitive field")
-                    || labels.contains("当前敏感字段已禁用语音输入");
-            if (hasMore
-                    && hasMode == voiceVisible
-                    && hasVoice == voiceVisible
-                    && hasSensitiveStatus == sensitiveStatusVisible) {
+            boolean hasFunctions = labels.contains("Open keyboard functions")
+                    || labels.contains("打开键盘功能面板");
+            boolean hasClipboard = labels.contains("Open clipboard history")
+                    || labels.contains("打开剪贴板历史");
+            boolean hasEmoji = labels.contains("Open Emoji")
+                    || labels.contains("打开 Emoji");
+            boolean hasLanguage = labels.stream().anyMatch(value ->
+                    value.startsWith("Latin input active;")
+                            || value.startsWith("Chinese input active;")
+                            || value.startsWith("当前为拉丁输入；")
+                            || value.startsWith("当前为中文输入；"));
+            if (hasFunctions
+                    && hasLanguage
+                    && hasClipboard == clipboardVisible
+                    && hasEmoji == emojiVisible) {
                 return;
             }
             long now = SystemClock.uptimeMillis();
@@ -1025,15 +1024,20 @@ public final class TestHostInstrumentedTest {
             while (!pending.isEmpty()) {
                 AccessibilityNodeInfo node = pending.removeFirst();
                 String description = String.valueOf(node.getContentDescription());
-                int match = description.startsWith("Voice processing mode:")
-                        || description.startsWith("当前语音处理模式：")
+                int match = description.equals("Open keyboard functions")
+                        || description.equals("打开键盘功能面板")
                         ? 0
-                        : description.equals("Start continuous long-text dictation")
-                        || description.equals("开始持续长文本听写")
+                        : description.equals("Open clipboard history")
+                        || description.equals("打开剪贴板历史")
                         ? 1
-                        : description.equals("More voice keyboard actions")
-                        || description.equals("更多语音键盘操作")
+                        : description.equals("Open Emoji")
+                        || description.equals("打开 Emoji")
                         ? 2
+                        : description.startsWith("Latin input active;")
+                        || description.startsWith("Chinese input active;")
+                        || description.startsWith("当前为拉丁输入；")
+                        || description.startsWith("当前为中文输入；")
+                        ? 3
                         : -1;
                 if (match >= 0
                         && expectedPackage.equals(String.valueOf(node.getPackageName()))

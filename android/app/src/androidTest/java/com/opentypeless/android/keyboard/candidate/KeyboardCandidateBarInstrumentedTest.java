@@ -16,6 +16,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.opentypeless.android.R;
+import com.opentypeless.android.keyboard.toolbar.KeyboardToolbarLayout;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -125,6 +126,26 @@ public final class KeyboardCandidateBarInstrumentedTest {
     }
 
     @Test
+    public void candidateReplacementMatchesToolbarRowHeightWithoutFontPadding() {
+        onMain(() -> {
+            Harness harness = new Harness();
+            harness.bar.showPage(page("rime", 1L, 1L, 0, 1, "行", "型"));
+            int rowHeight = Math.round(KeyboardCandidateBar.MINIMUM_TOUCH_TARGET_DP
+                    * harness.context.getResources().getDisplayMetrics().density);
+
+            harness.bar.root().measure(
+                    View.MeasureSpec.makeMeasureSpec(harness.dp(360), View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(harness.dp(96), View.MeasureSpec.AT_MOST));
+
+            assertEquals(KeyboardToolbarLayout.MINIMUM_TOUCH_TARGET_DP,
+                    KeyboardCandidateBar.MINIMUM_TOUCH_TARGET_DP);
+            assertEquals(rowHeight, harness.bar.root().getMeasuredHeight());
+            assertEquals(rowHeight, harness.bar.candidateButton(0).getMeasuredHeight());
+            assertFalse(harness.bar.candidateButton(0).getIncludeFontPadding());
+        });
+    }
+
+    @Test
     public void latinAndRimePagesReuseTheSameViewWithoutRetainingOldText() {
         onMain(() -> {
             Harness harness = new Harness();
@@ -199,6 +220,10 @@ public final class KeyboardCandidateBarInstrumentedTest {
 
         Harness() {
             bar.setPlaintextVisible(true);
+        }
+
+        int dp(int value) {
+            return Math.round(value * context.getResources().getDisplayMetrics().density);
         }
 
         @Override

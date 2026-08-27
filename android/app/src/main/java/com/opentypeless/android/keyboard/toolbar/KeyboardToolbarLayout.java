@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
  */
 public final class KeyboardToolbarLayout {
     public enum Placement {
+        LEADING,
         PRIMARY,
         OVERFLOW
     }
@@ -39,6 +40,7 @@ public final class KeyboardToolbarLayout {
     private final Map<String, Placement> placements = new LinkedHashMap<>();
     private final Map<String, View> actions = new LinkedHashMap<>();
     private boolean statusTextAttached;
+    private boolean leadingActionAttached;
     private boolean overflowAttached;
 
     public KeyboardToolbarLayout(Context context, LinearLayout root) {
@@ -91,6 +93,16 @@ public final class KeyboardToolbarLayout {
         params.setMarginStart(dp(2));
         params.setMarginEnd(dp(4));
         statusSlot.addView(indicator, params);
+    }
+
+    /** Adds the single left-side function-panel action before the flexible status slot. */
+    public void attachLeadingAction(String placementId, View action) {
+        if (leadingActionAttached) {
+            throw new IllegalStateException("leading toolbar action already attached");
+        }
+        register(placementId, Placement.LEADING, action);
+        leadingActionAttached = true;
+        statusSlot.addView(action, 0, actionParams(MINIMUM_TOUCH_TARGET_DP));
     }
 
     public void attachStatusText(View status) {

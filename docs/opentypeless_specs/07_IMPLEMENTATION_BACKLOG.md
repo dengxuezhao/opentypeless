@@ -1052,6 +1052,12 @@ PASS。最终两机默认输入法分别恢复 LatinIME/PangIME。Action 配置�
 资源。architecture preflight、app JVM 1085/1085、Release lint 与三类 APK 构建均 PASS；API35 ARM64 emulator
 相关 Android View 测试 13/13 PASS。当前没有连接 Xiaomi 15，因此本次跟进的该机视觉验收仍属于 KBD-009/TST-010。
 
+**KBD-006 工具栏与语音页跟进（2026-08-28，`DONE`）：** Route-A QWERTY 顶栏改为左侧功能面板入口，右侧
+剪贴板、Emoji 和 EN/中引擎切换；语音页改为 OpenTypeless + 语音/EN/拼分段头部，麦克风独立居中，删除/符号不再
+把它挤歪。功能行和候选行均为精确 48dp，候选文字关闭系统 font padding，候选出现/消失不再令字母区上下跳动。
+深色模式截图复现并修复了旧 232dp 最小高度导致的 Enter 裁切，竖屏按真实 256dp 内容高度测量。完整证据见
+[`2026-08-28-kbd-006-toolbar-voice-followup.md`](../2026-08-28-kbd-006-toolbar-voice-followup.md)。
+
 **KBD-007 完成说明（2026-08-16，`DONE`）：** 新的 immutable `CandidatePage` 为 Latin/Rime 共用 producer、
 generation、page revision、稳定 candidate ID/expected text 与分页方向；单页最多 16 项、总页数最多 128、单候选
 最多 256 code points。Route-A composition slot 现接入一个默认空且横向滚动的 48dp 候选栏；序号与内容描述可读，

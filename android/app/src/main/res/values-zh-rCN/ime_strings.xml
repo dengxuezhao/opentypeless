@@ -69,6 +69,11 @@
     <string name="ime_key_hold_to_talk_compact">按住</string>
     <string name="ime_tab_voice">语音</string>
     <string name="ime_tab_keyboard">键盘</string>
+    <string name="ime_voice_brand" translatable="false">OpenTypeless</string>
+    <string name="ime_voice_chinese_tab">拼</string>
+    <string name="ime_cd_voice_tab_active">当前为语音输入</string>
+    <string name="ime_cd_open_latin_tab">打开英文键盘</string>
+    <string name="ime_cd_open_chinese_tab">打开中文键盘</string>
     <string name="ime_cd_open_voice_tab">打开语音输入</string>
     <string name="ime_cd_open_keyboard_tab">打开 QWERTY 键盘</string>
     <string name="ime_voice_tap_hint">点击说话</string>
@@ -136,6 +141,10 @@
     <string name="ime_cd_action_done">完成</string>
     <string name="ime_cd_action_next">下一项</string>
     <string name="ime_cd_more">更多语音键盘操作</string>
+    <string name="ime_cd_function_panel">打开键盘功能面板</string>
+    <string name="ime_cd_open_clipboard">打开剪贴板历史</string>
+    <string name="ime_cd_open_emoji">打开 Emoji</string>
+    <string name="ime_menu_voice_input">语音输入</string>
     <string name="ime_cd_punctuation">插入标点符号</string>
     <string name="ime_cd_clipboard_refresh">重新读取当前剪贴板</string>
     <string name="ime_cd_clipboard_close">关闭剪贴板面板</string>

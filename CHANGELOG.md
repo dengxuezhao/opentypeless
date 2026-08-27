@@ -155,9 +155,12 @@ implicitly version the other. Release entries must name an immutable tag and sou
   long-press feedback without an ordinary-click callback. The private versioned settings page adds
   no exported surface or permission; Xiaomi 10 Ultra passes the 12-case real-View keyboard matrix
   plus the persisted-settings test, and is configured to light haptics with 35% key sound.
-- `KBD-006` adds a bounded Route-A toolbar with fixed mode/voice controls, one overflow anchor,
-  48dp touch targets and narrow-landscape measurement. Undo remains in More, and both the ARM64
-  emulator and Xiaomi 10 Ultra pass the direct View and selected-system-IME toolbar checks.
+- `KBD-006` adds a bounded Route-A toolbar and now follows a typing-first hierarchy: Functions on
+  the left, direct Clipboard/Emoji/EN-or-Chinese actions on the right, and a 48dp candidate strip
+  that replaces the function row without moving the QWERTY grid. The Voice page uses a centred
+  microphone independent of its right-side utilities plus Voice/EN/Chinese tabs; its full portrait
+  height prevents edge-to-edge dark-mode clipping. Undo remains in Functions, and no third-party
+  code or asset is copied.
 - `KBD-007` adds one engine-independent, revision-bound candidate page model and a real horizontal
   48dp candidate bar with numbered accessibility labels, stable selection/paging callbacks and
   destructive sensitive-field clearing. Latin and Rime can reuse the same contract, while actual

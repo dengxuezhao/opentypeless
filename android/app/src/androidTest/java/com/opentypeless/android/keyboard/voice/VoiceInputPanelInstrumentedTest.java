@@ -27,28 +27,40 @@ public final class VoiceInputPanelInstrumentedTest {
             measure(harness.panel.root(), harness.dp(360), harness.dp(260));
 
             assertEquals(LinearLayout.VERTICAL, harness.panel.root().getOrientation());
-            assertEquals(3, harness.panel.root().getChildCount());
+            int exactContentHeight = harness.dp(4) * 3
+                    + harness.dp(8) * 2
+                    + harness.dp(48) * 2
+                    + harness.dp(32)
+                    + harness.dp(100);
+            assertEquals(exactContentHeight, harness.panel.root().getMeasuredHeight());
+            assertEquals(4, harness.panel.root().getChildCount());
             assertEquals(VoiceInputPanel.ROOT_TAG, harness.panel.root().getTag());
+            assertEquals(VoiceInputPanel.BRAND_TAG, harness.panel.brand().getTag());
+            assertEquals(VoiceInputPanel.VOICE_TAB_TAG, harness.panel.voiceTab().getTag());
+            assertEquals(VoiceInputPanel.LATIN_TAB_TAG, harness.panel.latinTab().getTag());
+            assertEquals(VoiceInputPanel.CHINESE_TAB_TAG, harness.panel.chineseTab().getTag());
             assertEquals(VoiceInputPanel.MICROPHONE_TAG,
                     harness.panel.microphoneButton().getTag());
             assertEquals(VoiceInputPanel.DELETE_TAG, harness.panel.deleteButton().getTag());
             assertEquals(VoiceInputPanel.PUNCTUATION_TAG,
                     harness.panel.punctuationButton().getTag());
             assertEquals(VoiceInputPanel.ENTER_TAG, harness.panel.enterButton().getTag());
-            assertEquals(VoiceInputPanel.SYSTEM_KEYBOARD_TAG,
-                    harness.panel.systemKeyboardButton().getTag());
 
-            assertEquals(harness.dp(160), harness.panel.microphoneButton().getWidth());
+            assertEquals(harness.dp(168), harness.panel.microphoneButton().getWidth());
             assertEquals(harness.dp(64), harness.panel.microphoneButton().getHeight());
+            assertTrue("microphone is not centered in the panel",
+                    Math.abs(harness.panel.root().getWidth() / 2
+                            - absoluteCenterX(harness.panel.microphoneButton())) <= 1);
             assertCentered(harness.panel.microphoneButton());
             assertCentered(harness.panel.deleteButton());
-            assertCentered(harness.panel.systemKeyboardButton());
             for (View action : new View[] {
                     harness.panel.microphoneButton(),
                     harness.panel.deleteButton(),
                     harness.panel.punctuationButton(),
                     harness.panel.enterButton(),
-                    harness.panel.systemKeyboardButton()
+                    harness.panel.voiceTab(),
+                    harness.panel.latinTab(),
+                    harness.panel.chineseTab()
             }) {
                 assertTrue(action.getWidth() >= harness.dp(
                         VoiceInputPanel.MINIMUM_TOUCH_TARGET_DP));
@@ -60,14 +72,14 @@ public final class VoiceInputPanelInstrumentedTest {
             assertTrue(harness.panel.deleteButton().performClick());
             assertTrue(harness.panel.punctuationButton().performClick());
             assertTrue(harness.panel.enterButton().performClick());
-            assertTrue(harness.panel.systemKeyboardButton().performClick());
-            assertTrue(harness.panel.systemKeyboardButton().performLongClick());
+            assertTrue(harness.panel.latinTab().performClick());
+            assertTrue(harness.panel.chineseTab().performClick());
             assertEquals(1, harness.microphone.get());
             assertEquals(1, harness.delete.get());
             assertEquals(1, harness.punctuation.get());
             assertEquals(1, harness.enter.get());
-            assertEquals(1, harness.switchKeyboard.get());
-            assertEquals(1, harness.picker.get());
+            assertEquals(1, harness.latin.get());
+            assertEquals(1, harness.chinese.get());
         });
     }
 
@@ -79,13 +91,14 @@ public final class VoiceInputPanelInstrumentedTest {
 
             assertEquals(LinearLayout.HORIZONTAL, harness.panel.root().getOrientation());
             assertEquals(2, harness.panel.root().getChildCount());
-            assertTrue(harness.panel.root().getMeasuredHeight() <= harness.dp(76));
+            assertTrue(harness.panel.root().getMeasuredHeight() <= harness.dp(96));
             for (View action : new View[] {
                     harness.panel.microphoneButton(),
                     harness.panel.deleteButton(),
                     harness.panel.punctuationButton(),
                     harness.panel.enterButton(),
-                    harness.panel.systemKeyboardButton()
+                    harness.panel.latinTab(),
+                    harness.panel.chineseTab()
             }) {
                 assertTrue("action starts outside panel", absoluteLeft(action) >= 0);
                 assertTrue("action is clipped at panel end",
@@ -94,7 +107,6 @@ public final class VoiceInputPanelInstrumentedTest {
             }
             assertCentered(harness.panel.microphoneButton());
             assertCentered(harness.panel.deleteButton());
-            assertCentered(harness.panel.systemKeyboardButton());
         });
     }
 
@@ -117,10 +129,12 @@ public final class VoiceInputPanelInstrumentedTest {
             assertFalse(harness.panel.deleteButton().isEnabled());
             assertFalse(harness.panel.punctuationButton().isEnabled());
             assertFalse(harness.panel.enterButton().isEnabled());
-            assertTrue(harness.panel.systemKeyboardButton().isEnabled());
+            assertTrue(harness.panel.latinTab().isEnabled());
+            assertTrue(harness.panel.chineseTab().isEnabled());
 
-            harness.panel.setSystemSwitchEnabled(false);
-            assertFalse(harness.panel.systemKeyboardButton().isEnabled());
+            harness.panel.setKeyboardTabsEnabled(false);
+            assertFalse(harness.panel.latinTab().isEnabled());
+            assertFalse(harness.panel.chineseTab().isEnabled());
         });
     }
 
@@ -144,6 +158,10 @@ public final class VoiceInputPanelInstrumentedTest {
             parent = (View) parent.getParent();
         }
         return left;
+    }
+
+    private static int absoluteCenterX(View view) {
+        return absoluteLeft(view) + view.getWidth() / 2;
     }
 
     private static void assertCentered(CenteredIconButton button) {
@@ -172,8 +190,8 @@ public final class VoiceInputPanelInstrumentedTest {
         final AtomicInteger delete = new AtomicInteger();
         final AtomicInteger punctuation = new AtomicInteger();
         final AtomicInteger enter = new AtomicInteger();
-        final AtomicInteger switchKeyboard = new AtomicInteger();
-        final AtomicInteger picker = new AtomicInteger();
+        final AtomicInteger latin = new AtomicInteger();
+        final AtomicInteger chinese = new AtomicInteger();
         final VoiceInputPanel panel;
 
         Harness(boolean wideLandscape) {
@@ -200,13 +218,13 @@ public final class VoiceInputPanelInstrumentedTest {
         }
 
         @Override
-        public void onSwitchKeyboard() {
-            switchKeyboard.incrementAndGet();
+        public void onLatinKeyboard() {
+            latin.incrementAndGet();
         }
 
         @Override
-        public void onShowKeyboardPicker() {
-            picker.incrementAndGet();
+        public void onChineseKeyboard() {
+            chinese.incrementAndGet();
         }
 
         int dp(int value) {
@@ -218,7 +236,7 @@ public final class VoiceInputPanelInstrumentedTest {
         @Override public void onDelete() {}
         @Override public void onPunctuation(View anchor) {}
         @Override public void onEditorAction() {}
-        @Override public void onSwitchKeyboard() {}
-        @Override public void onShowKeyboardPicker() {}
+        @Override public void onLatinKeyboard() {}
+        @Override public void onChineseKeyboard() {}
     }
 }

@@ -81,6 +81,11 @@
     <string name="ime_key_hold_to_talk_compact">Hold</string>
     <string name="ime_tab_voice">Voice</string>
     <string name="ime_tab_keyboard">Keyboard</string>
+    <string name="ime_voice_brand" translatable="false">OpenTypeless</string>
+    <string name="ime_voice_chinese_tab">拼</string>
+    <string name="ime_cd_voice_tab_active">Voice input is active</string>
+    <string name="ime_cd_open_latin_tab">Open the English keyboard</string>
+    <string name="ime_cd_open_chinese_tab">Open the Chinese keyboard</string>
     <string name="ime_cd_open_voice_tab">Open voice input</string>
     <string name="ime_cd_open_keyboard_tab">Open the QWERTY keyboard</string>
     <string name="ime_voice_tap_hint">Tap to speak</string>
@@ -152,6 +157,10 @@
     <string name="ime_cd_action_done">Done</string>
     <string name="ime_cd_action_next">Next</string>
     <string name="ime_cd_more">More voice keyboard actions</string>
+    <string name="ime_cd_function_panel">Open keyboard functions</string>
+    <string name="ime_cd_open_clipboard">Open clipboard history</string>
+    <string name="ime_cd_open_emoji">Open Emoji</string>
+    <string name="ime_menu_voice_input">Voice input</string>
     <string name="ime_cd_punctuation">Insert punctuation</string>
     <string name="ime_cd_clipboard_refresh">Read the current clipboard again</string>
     <string name="ime_cd_clipboard_close">Close the clipboard panel</string>
