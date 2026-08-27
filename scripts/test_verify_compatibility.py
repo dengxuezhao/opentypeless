@@ -66,6 +66,13 @@ class VerifyCompatibilityTest(unittest.TestCase):
                 "desktop application version authority drift",
             ),
             (
+                "emoji-catalog-version",
+                "android/app/src/main/java/com/opentypeless/android/keyboard/emoji/EmojiCatalogData.java",
+                'static final String UNICODE_VERSION = "15.1";',
+                'static final String UNICODE_VERSION = "16.0";',
+                "version authority inventory drift",
+            ),
+            (
                 "changelog",
                 "CHANGELOG.md",
                 verify_compatibility.BASELINE_CHANGE_ID,

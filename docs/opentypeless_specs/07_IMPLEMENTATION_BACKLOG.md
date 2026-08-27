@@ -869,6 +869,15 @@ ETM 单写入门面，面板与 store 无 editor capability；没有新增权限
 五个 APK 资源扫描 0 违规；API35 arm64 emulator 的 store/View 组件测试 5/5 PASS，system-selected IME 普通文本
 与密码字段端到端 1/1 PASS。小米 10 Ultra 本轮未连接，真机执行明确为 `NOT RUN`。
 
+**KBD-010 目录/搜索跟进（2026-08-28，`DONE`）：** 按 ADR-0015 将目录扩充为九类 1,898 个 Unicode Emoji
+15.1 fully-qualified base sequence，增加回收式网格、底部分类栏和 32 code-point/240-result 有界英文/分类级拼音
+UI 搜索；domain index 同时保留中文 CLDR 词。CLDR 45 名称与关键词通过 exact-hash maintenance generator 生成到 checked-in Java，运行期不解析
+资产、不联网、不增加依赖、字体或图片；搜索按键在 Rime/editor 之前截获且 query 不持久化。ADR-0013 的 21 项
+Recent v1 格式、敏感/no-learning 零读取/零写入策略与 ETM 单写入门面保持不变。最终全量门禁和产物证据记录在
+`docs/2026-08-28-kbd-010-emoji-catalog-search.md`。最终 `verify_android.sh all` 为 121 个 script tests、291 个
+source architecture tests、191 个 Gradle tasks、app JVM 1097/1097 与 compiled architecture 114/114 全部 PASS；
+五 APK exact resource scan 0 违规。API35 ARM64 final APK 的 panel/store 6/6、system-selected IME 1/1 PASS。
+
 **RIM-003 完成说明（2026-08-16，`DONE`）：** 设置页现提供显式 SAF 本地导入、bounded closed-world manifest/ZIP/YAML
 校验、no-backup copy-once staging、librime 1.17.0 dry deploy、同目录原子 current/rollback 与清除。未验证包固定
 `USER_PROVIDED_UNVERIFIED` / `LOCAL_ONLY`，不自动下载、更新、导出或备份。clean strict graph 191 tasks PASS；最终

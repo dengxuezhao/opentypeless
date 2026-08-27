@@ -442,11 +442,12 @@ FunASR 模型开源协议
 如果您对本协议有任何问题或意见，请联系我们。
 
 版权所有© [2023-2028] [阿里巴巴集团]。保留所有权利。
-Unicode Emoji 15.1 data subset
-==============================
+Unicode Emoji 15.1 and CLDR 45 data
+==================================
 
-OpenTypeless includes a manually curated 168-sequence subset of Unicode Emoji 15.1 data for its
-offline Emoji picker. No Unicode font or glyph artwork is bundled.
+OpenTypeless includes 1,898 fully-qualified base sequences from Unicode Emoji 15.1 and
+English/Chinese search annotations from Unicode CLDR 45 for its offline Emoji picker. The catalog
+is generated from exact-hash source inputs. No Unicode font or glyph artwork is bundled.
 
 UNICODE LICENSE V3
 

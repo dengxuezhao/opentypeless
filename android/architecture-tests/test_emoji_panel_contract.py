@@ -9,8 +9,10 @@ from emoji_panel_contract import (
     ADR,
     ANDROID_TEST_ROOT,
     BACKUP_RULES,
+    CATALOG_ADR,
     EMOJI_ROOT,
     EXPECTED_FILES,
+    GENERATOR,
     HOST_TEST,
     SERVICE,
     UNIT_ROOT,
@@ -35,12 +37,17 @@ class EmojiPanelContractTest(unittest.TestCase):
             UNIT_ROOT / "EmojiRecentsTest.java",
             ANDROID_TEST_ROOT / "EmojiRecentStoreInstrumentedTest.java",
             ANDROID_TEST_ROOT / "KeyboardEmojiPanelInstrumentedTest.java",
+            GENERATOR,
         ):
             self.copy(android, relative)
         adr_source = (android / ADR).resolve()
         adr_target = (self.root / ADR).resolve()
         adr_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(adr_source, adr_target)
+        catalog_adr_source = (android / CATALOG_ADR).resolve()
+        catalog_adr_target = (self.root / CATALOG_ADR).resolve()
+        catalog_adr_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(catalog_adr_source, catalog_adr_target)
 
     def copy(self, android: Path, relative: Path) -> None:
         target = self.root / relative
@@ -87,6 +94,48 @@ class EmojiPanelContractTest(unittest.TestCase):
         )
         self.assertIn("KBD010_PANEL_CAPABILITY", self.rules())
 
+    def test_rejects_shrunken_generated_catalog(self) -> None:
+        self.mutate(
+            EMOJI_ROOT / "EmojiCatalogData.java",
+            "static final int ENTRY_COUNT = 1_898;",
+            "static final int ENTRY_COUNT = 1_897;",
+        )
+        self.assertIn("KBD010_GENERATED_CATALOG", self.rules())
+
+    def test_rejects_api34_stream_to_list(self) -> None:
+        catalog = EMOJI_ROOT / "EmojiCatalog.java"
+        path = self.root / catalog
+        path.write_text(
+            path.read_text(encoding="utf-8")
+            + "\nvalues.stream().map(EmojiCatalog.Entry::emoji).toList();\n",
+            encoding="utf-8",
+        )
+        self.assertIn("KBD010_PINNED_CATALOG", self.rules())
+
+    def test_rejects_nonvirtual_grid(self) -> None:
+        self.mutate(
+            EMOJI_ROOT / "KeyboardEmojiPanel.java",
+            "grid.setAdapter(adapter);",
+            "grid.setAdapter(null);",
+        )
+        self.assertIn("KBD010_PANEL_CAPABILITY", self.rules())
+
+    def test_rejects_overlapping_full_width_cells(self) -> None:
+        self.mutate(
+            EMOJI_ROOT / "KeyboardEmojiPanel.java",
+            "new GridView.LayoutParams(\n                    dp(MINIMUM_TOUCH_TARGET_DP),",
+            "new GridView.LayoutParams(\n                    ViewGroup.LayoutParams.MATCH_PARENT,",
+        )
+        self.assertIn("KBD010_PANEL_CAPABILITY", self.rules())
+
+    def test_rejects_search_that_reaches_rime_or_editor(self) -> None:
+        self.mutate(
+            SERVICE,
+            "emoji.appendSearchText(text);\n            return;",
+            "emoji.appendSearchText(text);",
+        )
+        self.assertIn("KBD010_SERVICE_WIRING", self.rules())
+
     def test_rejects_sensitive_recent_read(self) -> None:
         self.mutate(
             SERVICE,
@@ -100,6 +149,12 @@ class EmojiPanelContractTest(unittest.TestCase):
         source = adr.read_text(encoding="utf-8")
         adr.write_text(source.replace("Accepted", "Proposed", 1), encoding="utf-8")
         self.assertIn("KBD010_ACCEPTED_ADR", self.rules())
+
+    def test_rejects_unaccepted_catalog_decision(self) -> None:
+        adr = (self.root / CATALOG_ADR).resolve()
+        source = adr.read_text(encoding="utf-8")
+        adr.write_text(source.replace("Accepted", "Proposed", 1), encoding="utf-8")
+        self.assertIn("KBD010_ACCEPTED_CATALOG_ADR", self.rules())
 
 
 if __name__ == "__main__":

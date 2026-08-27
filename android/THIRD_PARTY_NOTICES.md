@@ -19,8 +19,10 @@ The production APK contains the following revision-pinned runtime components:
   (primarily MPL 2.0 with the bundled compatible third-party notices); KISS FFT `febd4cae`
   (BSD-3-Clause); and nlohmann/json 3.12.0 (MIT).
 - Kotlin standard library 1.7.20 — Apache License 2.0, JetBrains and Kotlin contributors.
-- The KBD-010 picker includes a manually curated 168-sequence subset of Unicode Emoji 15.1 data —
-  Unicode License v3 (`Unicode-3.0`), Unicode, Inc. No Unicode font or glyph artwork is bundled.
+- The KBD-010 picker includes 1,898 fully-qualified base sequences from Unicode Emoji 15.1 and
+  English/Chinese search annotations from Unicode CLDR 45 — Unicode License v3 (`Unicode-3.0`),
+  Unicode, Inc. The checked-in Java catalog is generated offline from exact-hash source inputs; no
+  Unicode font or glyph artwork is bundled.
 
 The Apache, MIT, MPL, BSD, MINPACK, model-license, copyright, attribution, source, and revision
 texts are bundled in `res/raw/legal_notices.txt` and `res/raw/offline_asr_runtime_licenses.txt`;

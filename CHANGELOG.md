@@ -70,10 +70,13 @@ implicitly version the other. Release entries must name an immutable tag and sou
   v1 payload is encrypted under a dedicated AndroidKeyStore AES-GCM domain in backup-excluded private
   preferences; sensitive/no-learning fields never read, decrypt, render or write it. Search keys stay
   inside the panel, clear-all requires a second confirmation, and Paste still uses the ETM facade.
-- `KBD-010` adds a local categorized Emoji panel with eight Unicode 15.1 groups and a bounded
-  21-item recent list. Static Emoji stays usable in sensitive fields, while sensitive/no-learning
-  policy suppresses every recent-list read and write. The versioned private payload stores only
-  allowlisted code points and no time, count, App or editor context; all insertion still uses the
+- `KBD-010` expands the local Emoji panel to 1,898 Unicode Emoji 15.1 sequences in nine browse
+  categories, a recycling grid, bottom category rail and bounded English/pinyin UI search backed by
+  English/Chinese CLDR metadata.
+  The catalog and CLDR 45 annotations are generated offline from exact-hash Unicode inputs; no
+  runtime parser, network, dependency, font or artwork is added. The 21-item recent format stays at
+  v1. Static Emoji and transient search remain usable in sensitive fields, while sensitive/
+  no-learning policy suppresses every recent-list read and write. All insertion still uses the
   existing ETM typing facade.
 
 - `TST-001` completes the lightweight personal-use Test Host matrix for every current platform
@@ -177,6 +180,10 @@ implicitly version the other. Release entries must name an immutable tag and sou
 
 ### Compatibility
 
+- `KBD-010` registers Unicode Emoji 15.1 and CLDR 45 as the generated Android catalog data
+  authorities while retaining the existing private Recent `format_version=1`. A future catalog
+  version must update the pinned source hashes, compatibility matrix, changelog and executable
+  generator/contract tests together; no runtime or persisted-data migration is introduced here.
 - `KBD-001-ROUTE-A-SHELL-2026-08-16` introduces the Android-only
   `keyboard_shell_route_a` boolean preference. Missing state and the bounded legacy `enabled` alias
   both migrate synchronously to the canonical key; the canonical default is Route A. A service

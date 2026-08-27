@@ -157,6 +157,15 @@ EXPECTED_ROWS: dict[str, MatrixExpectation] = {
         ),
         KBD010_CHANGE_ID,
     ),
+    "android-emoji-catalog": MatrixExpectation(
+        "data",
+        "unicode15.1,cldr45",
+        (
+            "android/app/src/main/java/com/opentypeless/android/keyboard/emoji/EmojiCatalogData.java",
+            "scripts/generate_emoji_catalog.py",
+        ),
+        KBD010_CHANGE_ID,
+    ),
     "android-rime-resource-manifest": MatrixExpectation(
         "format",
         "opentypeless.rime-resource-manifest:1",
@@ -252,6 +261,14 @@ EXPECTED_VERSION_CONSTANTS: dict[tuple[str, str], str] = {
         "android/app/src/main/java/com/opentypeless/android/keyboard/emoji/EmojiRecentStore.java",
         "VERSION",
     ): "formatversion",
+    (
+        "android/app/src/main/java/com/opentypeless/android/keyboard/emoji/EmojiCatalogData.java",
+        "UNICODE_VERSION",
+    ): "15.1",
+    (
+        "android/app/src/main/java/com/opentypeless/android/keyboard/emoji/EmojiCatalogData.java",
+        "CLDR_VERSION",
+    ): "45",
     (
         "android/app/src/main/java/com/opentypeless/android/security/SecretStore.java",
         "FORMAT_VERSION",

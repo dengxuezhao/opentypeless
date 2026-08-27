@@ -972,6 +972,11 @@ public final class OpenTypelessImeService extends InputMethodService
     private int clipboardSearchPaddingTop;
     private int clipboardSearchPaddingRight;
     private int clipboardSearchPaddingBottom;
+    private boolean emojiSearchPaddingApplied;
+    private int emojiSearchPaddingLeft;
+    private int emojiSearchPaddingTop;
+    private int emojiSearchPaddingRight;
+    private int emojiSearchPaddingBottom;
     private RimeCompositionLease activeRimeLease;
     private boolean holdToTalkActive;
     private boolean preparingVoiceInput;
@@ -1404,6 +1409,11 @@ public final class OpenTypelessImeService extends InputMethodService
                     @Override
                     public void onClose() {
                         hideEmojiPanel();
+                    }
+
+                    @Override
+                    public void onSearchEditingChanged(boolean editing) {
+                        setEmojiSearchEditing(editing);
                     }
                 });
         keyboardEmojiPanel.root().setVisibility(View.GONE);
@@ -3085,6 +3095,12 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void routeTypingText(String text) {
+        KeyboardEmojiPanel emoji = keyboardEmojiPanel;
+        if (emoji != null && emoji.isSearchEditing()) {
+            // Emoji search owns visible QWERTY callbacks before Rime or the editor sees them.
+            emoji.appendSearchText(text);
+            return;
+        }
         KeyboardClipboardPanel clipboard = keyboardClipboardPanel;
         if (clipboard != null && clipboard.isSearchEditing()) {
             // Search owns visible QWERTY callbacks before either Rime or the editor sees them.
@@ -3160,6 +3176,11 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void routeDeleteBackward() {
+        KeyboardEmojiPanel emoji = keyboardEmojiPanel;
+        if (emoji != null && emoji.isSearchEditing()) {
+            emoji.deleteSearchCodePoint();
+            return;
+        }
         KeyboardClipboardPanel clipboard = keyboardClipboardPanel;
         if (clipboard != null && clipboard.isSearchEditing()) {
             clipboard.deleteSearchCodePoint();
@@ -3181,6 +3202,11 @@ public final class OpenTypelessImeService extends InputMethodService
     }
 
     private void routeKeyboardEnter() {
+        KeyboardEmojiPanel emoji = keyboardEmojiPanel;
+        if (emoji != null && emoji.isSearchEditing()) {
+            emoji.finishSearchEditing();
+            return;
+        }
         KeyboardClipboardPanel clipboard = keyboardClipboardPanel;
         if (clipboard != null && clipboard.isSearchEditing()) {
             clipboard.finishSearchEditing();
@@ -4837,6 +4863,11 @@ public final class OpenTypelessImeService extends InputMethodService
         if (panel == null || typingSurface == null) return;
         hideClipboardPanel();
         if (latinKeyboardLayout != null) latinKeyboardLayout.cancelTransientGestures();
+        // Search uses the visible QWERTY rows and must not inherit the Voice page.
+        if (keyboardInputModeLayout != null
+                && keyboardInputModeLayout.mode() != KeyboardInputModeLayout.Mode.QWERTY) {
+            keyboardInputModeLayout.select(KeyboardInputModeLayout.Mode.QWERTY);
+        }
         visibleEmojiRecents = emojiPrivacy.recentsVisible()
                 ? emojiRecentStore.load()
                 : EmojiRecents.empty();
@@ -4871,7 +4902,45 @@ public final class OpenTypelessImeService extends InputMethodService
         }
     }
 
+    private void setEmojiSearchEditing(boolean editing) {
+        View typingSurface = keyboardTypingSurface;
+        KeyboardEmojiPanel panel = keyboardEmojiPanel;
+        if (typingSurface == null
+                || panel == null
+                || panel.root().getVisibility() != View.VISIBLE) {
+            return;
+        }
+        if (editing && !emojiSearchPaddingApplied) {
+            emojiSearchPaddingLeft = typingSurface.getPaddingLeft();
+            emojiSearchPaddingTop = typingSurface.getPaddingTop();
+            emojiSearchPaddingRight = typingSurface.getPaddingRight();
+            emojiSearchPaddingBottom = typingSurface.getPaddingBottom();
+            typingSurface.setPadding(
+                    emojiSearchPaddingLeft,
+                    emojiSearchPaddingTop + dp(KeyboardEmojiPanel.SEARCH_OVERLAY_HEIGHT_DP),
+                    emojiSearchPaddingRight,
+                    emojiSearchPaddingBottom);
+            emojiSearchPaddingApplied = true;
+        } else if (!editing) {
+            restoreEmojiSearchPadding();
+        }
+        typingSurface.setVisibility(editing ? View.VISIBLE : View.GONE);
+        panel.root().bringToFront();
+    }
+
+    private void restoreEmojiSearchPadding() {
+        View typingSurface = keyboardTypingSurface;
+        if (!emojiSearchPaddingApplied || typingSurface == null) return;
+        typingSurface.setPadding(
+                emojiSearchPaddingLeft,
+                emojiSearchPaddingTop,
+                emojiSearchPaddingRight,
+                emojiSearchPaddingBottom);
+        emojiSearchPaddingApplied = false;
+    }
+
     private void hideEmojiPanel() {
+        restoreEmojiSearchPadding();
         KeyboardEmojiPanel panel = keyboardEmojiPanel;
         if (panel != null) {
             panel.clear();

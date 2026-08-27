@@ -64,6 +64,13 @@
     <string name="ime_emoji_category_travel">Travel and places</string>
     <string name="ime_emoji_category_objects">Objects</string>
     <string name="ime_emoji_category_symbols">Symbols</string>
+    <string name="ime_emoji_category_flags">Flags</string>
+    <string name="ime_emoji_category_count">%1$s · %2$d</string>
+    <string name="ime_emoji_no_results">No matching Emoji</string>
+    <string name="ime_emoji_search_placeholder">Search Emoji in English or pinyin</string>
+    <string name="ime_emoji_search_done">Done</string>
+    <string name="ime_emoji_search_query_count">%1$s · %2$d matches</string>
+    <string name="ime_emoji_search_result_count">“%1$s” · %2$d matches</string>
     <string name="ime_key_long_dictation_compact">Long</string>
     <string name="ime_key_finish_dictation_compact">Done</string>
     <string name="ime_key_processing">Processing…</string>
@@ -151,6 +158,10 @@
     <string name="ime_cd_clipboard_paste">Paste the displayed clipboard text</string>
     <string name="ime_cd_emoji_close">Close the Emoji panel</string>
     <string name="ime_cd_insert_emoji">Insert Emoji %1$s</string>
+    <string name="ime_cd_insert_named_emoji">Insert %1$s, %2$s</string>
+    <string name="ime_cd_emoji_search">Search the Emoji catalog</string>
+    <string name="ime_cd_emoji_finish_search">Show Emoji search results</string>
+    <string name="ime_cd_emoji_clear_search">Clear the Emoji search query</string>
 
     <!-- TalkBack state descriptions for the microphone control. -->
     <string name="ime_state_idle">Idle</string>

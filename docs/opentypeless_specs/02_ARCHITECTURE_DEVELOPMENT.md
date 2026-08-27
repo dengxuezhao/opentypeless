@@ -3430,13 +3430,20 @@ Rime observation，UNCERTAIN 保持 fail-closed pending，二者都不启动识�
 
 ## 47. KBD-010 分类 Emoji 与最近使用
 
-`EmojiCatalog` 固定 Unicode Emoji 15.1 的 168 项本地子集，分为笑脸、人物、动物、食物、活动、旅行、物品和符号
-八类；每个页面最多 21 项，不在 IME 热路径解析资产、查询网络或加载字体。`KeyboardEmojiPanel` 只持有 View、当前分类
-和 bounded callback，不接收 editor、存储或网络能力。点击最终仍汇入现有 `insertKeyboardText` façade 与唯一 ETM；
-Voice 或非 idle Rime composition 存在时明确拒绝，不能创建第二写入路径。
+`EmojiCatalogData` 由 maintenance-only 生成器从 exact-hash Unicode Emoji 15.1 与 CLDR 45 输入确定性生成，固定
+1,898 个 fully-qualified base sequence，分为笑脸、人物、动物、食物、活动、旅行、物品、符号和旗帜九类。生成器
+拒绝哈希、数量、重复、控制字符、缺失名称和 metadata 大小偏差；构建与运行期不下载或解析目录资产，也不加载字体/
+图片。`KeyboardEmojiPanel` 使用回收式 `GridView` 和底部横向分类栏，只为可见项创建 48dp cell；面板只持有 View、
+当前分类和 bounded callback，不接收 editor、存储或网络能力。点击最终仍汇入现有 `insertKeyboardText` façade 与唯一
+ETM；Voice 或非 idle Rime composition 存在时明确拒绝，不能创建第二写入路径。
 
-最近使用由 `EmojiRecents` 维护 21 项 MRU，并通过 ADR-0013 的 private v1 code-point payload 保存。格式只接受 catalog
-成员，unknown version、畸形、过长、过深或额外项均返回空列表。普通字段打开面板时才读取 MRU，成功提交后才异步保存；
+搜索是 32 code-point query、最多 240 个结果的进程内投影，索引 CLDR 英文/中文名称与关键词，并提供分类级拼音别名。
+搜索时复用可见 QWERTY 的字母、删除与回车 callback，service 在 Rime/editor route 之前截获；不创建内部 `EditText`，
+不写编辑器，不保存 query。关闭、字段切换、InputView/window/service 生命周期都会清除 query 和回收行引用。
+
+最近使用由 `EmojiRecents` 维护 21 项 MRU，并通过 ADR-0013 的 private v1 code-point payload 保存；扩充目录不改变
+格式或迁移版本。格式只接受 catalog 成员，unknown version、畸形、过长、过深或额外项均返回空列表。普通字段打开
+面板时才读取 MRU，成功提交后才异步保存；
 不保存时间、次数、App、字段或上下文。静态 Emoji 在敏感字段保持可输入，但 SEC-001 hard safety 拒绝 Learning/Teach 时
 Recent category 为 `GONE`，且 service 不读取也不写入 store。面板在 mode、Voice、editor、InputView、window 与 service
-生命周期边界清除内存列表。
+生命周期边界清除内存列表。完整扩充决策见 ADR-0015。

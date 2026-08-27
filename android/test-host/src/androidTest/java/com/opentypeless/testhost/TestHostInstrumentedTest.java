@@ -568,11 +568,22 @@ public final class TestHostInstrumentedTest {
         awaitImeLabel(automation, expectedPackage, Set.of(
                 "Smileys and emotion", "笑脸与情绪"));
         activateImeNode(automation, expectedPackage, Set.of(
-                "Smileys and emotion", "笑脸与情绪"), false);
-        awaitImeLabel(automation, expectedPackage, Set.of("😀"));
-        activateImeNode(automation, expectedPackage, Set.of("😀"), true);
+                "Search the Emoji catalog", "搜索 Emoji 目录"), false);
+        awaitImeLabel(automation, expectedPackage, Set.of(
+                "Search Emoji in English or pinyin", "输入英文或拼音搜索 Emoji"));
+        activateImeNode(automation, expectedPackage, Set.of(
+                "d; touch and hold for $", "d；长按输入 $"), false);
+        activateImeNode(automation, expectedPackage, Set.of(
+                "o; touch and hold for 9", "o；长按输入 9"), false);
+        activateImeNode(automation, expectedPackage, Set.of(
+                "g; touch and hold for &", "g；长按输入 &amp;", "g；长按输入 &"), false);
+        assertFieldTextEventually(R.id.host_plain_text, "", automation, expectedPackage);
+        activateImeNode(automation, expectedPackage, Set.of(
+                "Show Emoji search results", "显示 Emoji 搜索结果"), false);
+        awaitImeLabel(automation, expectedPackage, Set.of("Insert dog, 🐕"));
+        activateImeNode(automation, expectedPackage, Set.of("Insert dog, 🐕"), false);
         assertFieldTextEventually(
-                R.id.host_plain_text, "😀", automation, expectedPackage);
+                R.id.host_plain_text, "🐕", automation, expectedPackage);
 
         focusField(R.id.host_password);
         activateImeNode(automation, expectedPackage, Set.of(
@@ -584,9 +595,10 @@ public final class TestHostInstrumentedTest {
         assertFalse("sensitive Emoji panel exposed recents: " + sensitivePanel,
                 sensitivePanel.contains("Recently used Emoji")
                         || sensitivePanel.contains("最近使用的 Emoji"));
-        activateImeNode(automation, expectedPackage, Set.of("😀"), true);
+        activateImeNode(automation, expectedPackage, Set.of(
+                "Insert grinning face with smiling eyes, 😄", "输入大笑，😄"), false);
         assertFieldTextEventually(
-                R.id.host_password, "😀", automation, expectedPackage);
+                R.id.host_password, "😄", automation, expectedPackage);
     }
 
     @Test
@@ -853,7 +865,8 @@ public final class TestHostInstrumentedTest {
             }
             SystemClock.sleep(100L);
         } while (SystemClock.uptimeMillis() < deadline);
-        assertTrue("input method node not found: " + labels, false);
+        assertTrue("input method node not found: " + labels
+                + "; observed=" + inputMethodLabels(automation, expectedPackage), false);
     }
 
     private void activatePackageNode(

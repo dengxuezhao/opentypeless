@@ -2786,20 +2786,34 @@ final: "我们今天需要先拆分输入法架构。"
 
 ### 12.2 KBD-010 分类 Emoji
 
-- 八个固定 category 共 168 个唯一 Unicode 15.1 序列；每页和 recent 均不超过 21 项；
-- ZWJ/variation-selector 多 code-point Emoji 保持精确提交，所有按钮与 category/close 达到 48dp；
+- 九个固定 browse category 共 1,898 个唯一 Unicode Emoji 15.1 fully-qualified base sequence；维护生成器必须验证
+  五个 Unicode/CLDR 45 输入哈希、唯一性、名称与精确数量，checked-in 输出逐字节可复现；
+- 大目录必须使用回收式网格和底部分类栏，不得 eager 创建全部按钮；所有可见 cell、category、back/search 达到 48dp；
+- 32 code-point query 与 240-result 上限准确；英文/中文 CLDR 词和分类级拼音可搜索，QWERTY 搜索按键不写 editor、
+  不进入 Rime，关闭/生命周期变化清除 query；
+- ZWJ/variation-selector/keycap/flag 多 code-point Emoji 保持精确提交，recent 仍不超过 21 项；
 - MRU 重复项移至首位，v1 code-point payload 跨 store round-trip；unknown version、畸形、越界与非 catalog 数据清空；
 - 普通字段显示并更新 Recent；敏感与 no-learning 字段仍显示静态 Emoji，但不读取、不显示、不写入 Recent；
 - selected system IME 在普通文本与密码字段各精确提交一次，密码面板无 Recent accessibility node；
 - Voice/non-idle Rime 明确拒绝打开或提交，所有合法 Emoji 只走 `insertKeyboardText`/ETM；
 - mode、Voice、field、InputView、window 与 service 生命周期清除面板内存，不新增权限、组件、网络、字体或依赖。
 
-2026-08-23 实际验收：`verify_android.sh all` PASS（120 个 script tests、269 个 source architecture tests、
+2026-08-23 初始 168 项切片实际验收：`verify_android.sh all` PASS（120 个 script tests、269 个 source architecture tests、
 compiled architecture debug/release 2 variants、191 Gradle tasks）；最终 Debug/Release/AndroidTest/Test Host 五个 APK
 经 exact resource policy 扫描均为 0 违规、0 真实小鹤资源。API35 arm64 emulator 定向
 `EmojiRecentStoreInstrumentedTest` 与 `KeyboardEmojiPanelInstrumentedTest` 共 5/5 PASS；将最终 Debug APK 真实设为
 系统当前 IME 后，`selectedImeEmojiInsertsAndSuppressesRecentsInSensitiveFieldWhenRequested` 1/1 PASS（5.585s），
 并恢复 LatinIME 为唯一启用/默认输入法。小米 10 Ultra 本轮未连接，因此该设备为 `NOT RUN`。
+
+2026-08-28 目录/搜索扩充定向验收：生成器 `--check` 报告精确 1,898 项；Emoji JVM 11/11、architecture
+12/12、API35 ARM64 panel/store instrumentation 6/6 PASS。将本次 Debug APK 真实设为系统当前 IME 后，搜索
+`dog` 不污染 host editor、选择 `🐕` 精确上屏，并在密码字段确认 Recent accessibility node 缺失且 `😄` 可输入，
+system-selected IME 1/1 PASS（6.16s）；随后恢复 LatinIME。最终 `verify_android.sh all` PASS：121 个 repository
+tests、11 个 Android checks、291 个 source architecture tests、10 个 voice tests、191 个 Gradle tasks、app JVM
+1097/1097、compiled architecture 114/114、Release lint 和五 APK exact resource scan 0 违规。Debug/unsigned
+Release/AndroidTest SHA-256 分别为 `e26689650c8fd346e505b1ea73134e73544fa5a13d11b8b7e73f2486a4c7b0cf`、
+`3b35c3dfb3ea6d23ddef0a84f251a8878f385789c0c5bee67229c4d4411aeff0`、
+`aae577f3f03dc3d3f127c46c3efdce0458e78dcea22dd404ba1fd99330bb052b`。小米设备未连接，本轮为 `NOT RUN`。
 
 ---
 

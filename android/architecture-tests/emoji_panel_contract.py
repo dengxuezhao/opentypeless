@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 import re
 import sys
@@ -16,15 +17,19 @@ UNIT_ROOT = Path("app/src/test/java/com/opentypeless/android/keyboard/emoji")
 ANDROID_TEST_ROOT = Path("app/src/androidTest/java/com/opentypeless/android/keyboard/emoji")
 HOST_TEST = Path("test-host/src/androidTest/java/com/opentypeless/testhost/TestHostInstrumentedTest.java")
 ADR = Path("../docs/adr/0013-emoji-recents-private-format.md")
+CATALOG_ADR = Path("../docs/adr/0015-expanded-emoji-catalog-search.md")
+GENERATOR = Path("../scripts/generate_emoji_catalog.py")
 BACKUP_RULES = Path("app/src/main/res/xml/data_extraction_rules.xml")
 EXPECTED_FILES = {
     "EmojiCatalog.java",
+    "EmojiCatalogData.java",
     "EmojiPrivacyPolicy.java",
     "EmojiRecentCodec.java",
     "EmojiRecents.java",
     "EmojiRecentStore.java",
     "KeyboardEmojiPanel.java",
 }
+GENERATED_CATALOG_SHA256 = "9dd48a5e04ad1a67b016bbdbf89fe869a331aaddfd4fcff436b610506846c998"
 WRITER = re.compile(
     r"\.\s*(?:commitText|setComposingText|finishComposingText|"
     r"deleteSurroundingText(?:InCodePoints)?|sendKeyEvent|setSelection)\s*\("
@@ -49,6 +54,8 @@ def _read(path: Path, rule: str, violations: list[Violation]) -> str:
 
 
 def _compact(value: str) -> str:
+    value = re.sub(r"/\*.*?\*/", "", value, flags=re.DOTALL)
+    value = re.sub(r"//[^\n]*", "", value)
     return re.sub(r"\s+", "", value)
 
 
@@ -71,6 +78,7 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         for name in EXPECTED_FILES
     }
     catalog = sources.get("EmojiCatalog.java", "")
+    catalog_data = sources.get("EmojiCatalogData.java", "")
     privacy = sources.get("EmojiPrivacyPolicy.java", "")
     codec = sources.get("EmojiRecentCodec.java", "")
     recents = sources.get("EmojiRecents.java", "")
@@ -79,6 +87,10 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     service = _read(root / SERVICE, "KBD010_SERVICE", violations)
     host_test = _read(root / HOST_TEST, "KBD010_SYSTEM_TEST", violations)
     adr = _read((root / ADR).resolve(), "KBD010_ADR", violations)
+    catalog_adr = _read(
+        (root / CATALOG_ADR).resolve(), "KBD010_CATALOG_ADR", violations
+    )
+    generator = _read((root / GENERATOR).resolve(), "KBD010_GENERATOR", violations)
     backup = _read(root / BACKUP_RULES, "KBD010_BACKUP", violations)
     unit_tests = "\n".join(
         _read(root / UNIT_ROOT / name, "KBD010_UNIT_TEST", violations)
@@ -103,6 +115,7 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     )
     for name, source in {
         "catalog": catalog,
+        "catalog_data": catalog_data,
         "privacy": privacy,
         "codec": codec,
         "recents": recents,
@@ -117,11 +130,41 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     if (
         "privatestaticfinalList<Category>BROWSE_CATEGORIES=List.of(" not in catalog_compact
         or "publicstaticbooleancontains(Stringemoji)" not in catalog_compact
-        or catalog.count("private static final List<String>") != 8
+        or "Category.FLAGS" not in catalog
+        or "publicstaticfinalintMAX_SEARCH_CODE_POINTS=32;" not in catalog_compact
+        or "publicstaticfinalintMAX_SEARCH_RESULTS=240;" not in catalog_compact
+        or "EmojiCatalogData.inventory()" not in catalog
+        or "if(count!=EmojiCatalogData.ENTRY_COUNT)" not in catalog_compact
+        or ".stream()" in catalog
+        or ".toList()" in catalog
     ):
         violations.append(Violation(
             "KBD010_PINNED_CATALOG",
-            "catalog must keep eight fixed local categories and membership validation",
+            "catalog must keep nine local categories, exact membership, bounded search and API26 collection code",
+        ))
+
+    catalog_data_digest = hashlib.sha256(catalog_data.encode("utf-8")).hexdigest()
+    if (
+        catalog_data_digest != GENERATED_CATALOG_SHA256
+        or catalog_data.count("new EmojiCatalog.Entry(") != 1_898
+        or 'static final String UNICODE_VERSION = "15.1";' not in catalog_data
+        or 'static final String CLDR_VERSION = "45";' not in catalog_data
+        or "static final int ENTRY_COUNT = 1_898;" not in catalog_data
+    ):
+        violations.append(Violation(
+            "KBD010_GENERATED_CATALOG",
+            "generated Unicode 15.1 / CLDR 45 catalog identity or 1898-entry count drifted",
+        ))
+    if any(token not in generator for token in (
+        '"emoji-test.txt": "d876ee249aa28eaa76cfa6dfaa702847a8d13b062aa488d465d0395ee8137ed9"',
+        '"en.xml": "cd86c3f805d7ee7cedd690cdb0523bdba279a89ba91aeb7982016571e77e61cb"',
+        '"zh.xml": "a09285afe873592b9eeeb1fa0de34a0bab79fce85351155d3427c6ec65c9b2ba"',
+        "if len(entries) != 1_898",
+        "verify_sources(args.source_dir)",
+    )):
+        violations.append(Violation(
+            "KBD010_GENERATOR_PROVENANCE",
+            "generator must verify exact Unicode/CLDR source bytes and output count",
         ))
 
     recents_compact = _compact(recents)
@@ -181,7 +224,7 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
 
     panel_forbidden = (
         "InputConnection", "EditorInfo", "SharedPreferences", "EmojiRecentStore",
-        "com.opentypeless.android.editor", "java.net.", "java.io.", "Log.",
+        "com.opentypeless.android.editor", "java.net.", "java.io.", "Log.", "EditText",
     )
     panel_compact = _compact(panel)
     if (
@@ -189,9 +232,17 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         or WRITER.search(panel)
         or any(token not in panel_compact for token in (
             "publicstaticfinalintMINIMUM_TOUCH_TARGET_DP=48",
+            "publicstaticfinalintSEARCH_OVERLAY_HEIGHT_DP=60",
             "voidonEmojiSelected(Stringemoji)",
+            "voidonSearchEditingChanged(booleanediting)",
             "recent.setVisibility(allowRecents?View.VISIBLE:View.GONE)",
-            "grid.removeAllViews()",
+            "grid.setAdapter(adapter)",
+            "grid.setColumnWidth(dp(MINIMUM_TOUCH_TARGET_DP))",
+            "newGridView.LayoutParams(dp(MINIMUM_TOUCH_TARGET_DP),dp(MINIMUM_TOUCH_TARGET_DP))",
+            "EmojiCatalog.search(query)",
+            "root.addView(gridFrame,matchHeight(GRID_HEIGHT_DP));",
+            "root.addView(categoryScroller,matchHeight(MINIMUM_TOUCH_TARGET_DP));",
+            "adapter.replace(entries,renderGeneration)",
         ))
     ):
         violations.append(Violation(
@@ -208,6 +259,11 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "insertKeyboardText(emoji);if(!lastKeyboardInsertApplied||!emojiPrivacy.recentsWritable())return",
         "emojiRecentStore.save(visibleEmojiRecents)",
         "if(lease!=null&&!lease.isIdle())",
+        "if(emoji!=null&&emoji.isSearchEditing()){emoji.appendSearchText(text);return;}",
+        "if(emoji!=null&&emoji.isSearchEditing()){emoji.deleteSearchCodePoint();return;}",
+        "if(emoji!=null&&emoji.isSearchEditing()){emoji.finishSearchEditing();return;}",
+        "voidsetEmojiSearchEditing(booleanediting)",
+        "restoreEmojiSearchPadding();",
     )
     if any(token not in service_compact for token in service_tokens):
         violations.append(Violation(
@@ -225,6 +281,16 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
             "KBD010_ACCEPTED_ADR",
             "versioned recent format requires Accepted ADR-0013",
         ))
+    if (
+        "## Status\n\nAccepted" not in catalog_adr
+        or "1,898" not in catalog_adr
+        or "CLDR 45" not in catalog_adr
+        or "format_version=1" not in catalog_adr
+    ):
+        violations.append(Violation(
+            "KBD010_ACCEPTED_CATALOG_ADR",
+            "expanded catalog/search boundary requires Accepted ADR-0015",
+        ))
     shared_pref_excludes = backup.count('<exclude domain="sharedpref" path="." />')
     if shared_pref_excludes != 2:
         violations.append(Violation(
@@ -233,12 +299,18 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         ))
 
     required_tests = (
-        (unit_tests, "everyBrowseCategoryIsBoundedNonEmptyAndGloballyUnique"),
+        (unit_tests, "everyBrowseCategoryIsNonEmptyGloballyUniqueAndGeneratedAtPinnedCount"),
+        (unit_tests, "englishChineseAndPinyinCategorySearchAreDeterministicAndBounded"),
+        (unit_tests, "searchQueryRejectsControlsAndOverlongInput"),
         (unit_tests, "unknownVersionMalformedUnknownAndOversizedPayloadsFailClosed"),
         (unit_tests, "sensitiveAndNoLearningFieldsKeepStaticEmojiButSuppressRecents"),
         (android_tests, "v1StorePersistsOnlyBoundedCatalogCodePoints"),
-        (android_tests, "sensitiveProjectionHidesRecentsButKeepsStaticCategoriesAndClose"),
+        (android_tests, "sensitiveProjectionHidesRecentsButKeepsFullStaticCatalogAndClose"),
+        (android_tests, "categorySelectionUsesVirtualizedGridAndBottomCategoryRail"),
+        (android_tests, "searchEditsOnlyMemoryThenRendersBoundedCatalogMatches"),
         (host_test, "selectedImeEmojiInsertsAndSuppressesRecentsInSensitiveFieldWhenRequested"),
+        (host_test, '"Search the Emoji catalog", "搜索 Emoji 目录"'),
+        (host_test, 'assertFieldTextEventually(R.id.host_plain_text, "", automation, expectedPackage)'),
         (host_test, 'getString("imeEmojiPackage")'),
     )
     if any(token not in source for source, token in required_tests):
