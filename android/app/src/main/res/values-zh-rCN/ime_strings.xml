@@ -36,10 +36,17 @@
     <string name="ime_cd_clipboard_finish_search">显示搜索结果</string>
     <string name="ime_cd_clipboard_clear_search">清除剪贴板搜索词</string>
     <string name="ime_cd_clipboard_paste_item">%1$s：%2$s。点按粘贴</string>
+    <string name="ime_cd_clipboard_pin_item">置顶 %1$s</string>
+    <string name="ime_cd_clipboard_unpin_item">取消置顶 %1$s</string>
+    <string name="ime_cd_clipboard_delete_item">删除 %1$s</string>
     <string name="ime_status_clipboard_history_memory_only">当前可以粘贴，但这条内容未能保存到历史</string>
     <string name="ime_status_clipboard_history_future">剪贴板历史来自较新版本，已保持原样</string>
     <string name="ime_status_clipboard_history_cleared">剪贴板历史已清空</string>
     <string name="ime_status_clipboard_history_clear_failed">无法清空剪贴板历史</string>
+    <string name="ime_status_clipboard_item_pinned">已置顶剪贴板内容</string>
+    <string name="ime_status_clipboard_item_unpinned">已取消置顶</string>
+    <string name="ime_status_clipboard_item_deleted">已删除剪贴板内容</string>
+    <string name="ime_status_clipboard_item_update_failed">无法更新剪贴板内容</string>
     <string name="ime_emoji_title">Emoji</string>
     <string name="ime_emoji_close">关闭</string>
     <string name="ime_emoji_recent_empty">暂无最近使用的 Emoji</string>

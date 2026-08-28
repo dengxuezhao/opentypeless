@@ -37,18 +37,39 @@ public final class ClipboardHistory {
     }
 
     public ClipboardHistory record(String text) {
-        Entry newest = Entry.from(text);
-        ArrayList<Entry> updated = new ArrayList<>(Math.min(MAX_ENTRIES, entries.size() + 1));
-        updated.add(newest);
-        int total = newest.codePoints();
+        Entry previous = null;
         for (Entry entry : entries) {
-            if (entry.text().equals(newest.text())) continue;
-            if (updated.size() >= MAX_ENTRIES) break;
-            if (total + entry.codePoints() > MAX_TOTAL_CODE_POINTS) continue;
-            updated.add(entry);
+            if (entry.text().equals(text)) {
+                previous = entry;
+                break;
+            }
+        }
+        Entry newest = Entry.from(text, previous != null && previous.pinned());
+        return withNewestInSection(newest);
+    }
+
+    public ClipboardHistory setPinned(String text, boolean pinned) {
+        Objects.requireNonNull(text, "text");
+        for (Entry entry : entries) {
+            if (entry.text().equals(text)) {
+                if (entry.pinned() == pinned) return this;
+                return withNewestInSection(entry.withPinned(pinned));
+            }
+        }
+        return this;
+    }
+
+    public ClipboardHistory delete(String text) {
+        Objects.requireNonNull(text, "text");
+        ArrayList<Entry> remaining = new ArrayList<>(entries.size());
+        int total = 0;
+        for (Entry entry : entries) {
+            if (entry.text().equals(text)) continue;
+            remaining.add(entry);
             total += entry.codePoints();
         }
-        return new ClipboardHistory(updated, total);
+        if (remaining.size() == entries.size()) return this;
+        return new ClipboardHistory(remaining, total);
     }
 
     public List<Entry> entries() {
@@ -80,14 +101,27 @@ public final class ClipboardHistory {
 
     static ClipboardHistory fromNewestFirst(List<String> texts) {
         Objects.requireNonNull(texts, "texts");
-        if (texts.size() > MAX_ENTRIES) {
+        ArrayList<StoredEntry> entries = new ArrayList<>(texts.size());
+        for (String text : texts) entries.add(new StoredEntry(text, false));
+        return fromStoredEntries(entries);
+    }
+
+    static ClipboardHistory fromStoredEntries(List<StoredEntry> storedEntries) {
+        Objects.requireNonNull(storedEntries, "storedEntries");
+        if (storedEntries.size() > MAX_ENTRIES) {
             throw new IllegalArgumentException("too many clipboard entries");
         }
         Set<String> unique = new HashSet<>();
-        ArrayList<Entry> validated = new ArrayList<>(texts.size());
+        ArrayList<Entry> validated = new ArrayList<>(storedEntries.size());
         int total = 0;
-        for (String text : texts) {
-            Entry entry = Entry.from(text);
+        boolean reachedUnpinned = false;
+        for (StoredEntry stored : storedEntries) {
+            Objects.requireNonNull(stored, "stored clipboard entry");
+            if (stored.pinned() && reachedUnpinned) {
+                throw new IllegalArgumentException("pinned clipboard entry is out of order");
+            }
+            reachedUnpinned |= !stored.pinned();
+            Entry entry = Entry.from(stored.text(), stored.pinned());
             if (!unique.add(entry.text())) {
                 throw new IllegalArgumentException("duplicate clipboard entry");
             }
@@ -98,6 +132,37 @@ public final class ClipboardHistory {
             validated.add(entry);
         }
         return new ClipboardHistory(validated, total);
+    }
+
+    private ClipboardHistory withNewestInSection(Entry newest) {
+        ArrayList<Entry> desired = new ArrayList<>(Math.min(MAX_ENTRIES + 1, entries.size() + 1));
+        if (newest.pinned()) desired.add(newest);
+        for (Entry entry : entries) {
+            if (!entry.text().equals(newest.text()) && entry.pinned()) desired.add(entry);
+        }
+        if (!newest.pinned()) desired.add(newest);
+        for (Entry entry : entries) {
+            if (!entry.text().equals(newest.text()) && !entry.pinned()) desired.add(entry);
+        }
+
+        int total = desired.stream().mapToInt(Entry::codePoints).sum();
+        while (desired.size() > MAX_ENTRIES || total > MAX_TOTAL_CODE_POINTS) {
+            int removal = oldestEvictionCandidate(desired, newest);
+            Entry removed = desired.remove(removal);
+            total -= removed.codePoints();
+        }
+        return new ClipboardHistory(desired, total);
+    }
+
+    private static int oldestEvictionCandidate(List<Entry> desired, Entry newest) {
+        for (int index = desired.size() - 1; index >= 0; index--) {
+            Entry entry = desired.get(index);
+            if (entry != newest && !entry.pinned()) return index;
+        }
+        for (int index = desired.size() - 1; index >= 0; index--) {
+            if (desired.get(index) != newest) return index;
+        }
+        return desired.size() - 1;
     }
 
     private static String normalizedQuery(String query) {
@@ -129,7 +194,13 @@ public final class ClipboardHistory {
                 + ", totalCodePoints=" + totalCodePoints + '}';
     }
 
-    public record Entry(String text, Category category, int codePoints) {
+    static record StoredEntry(String text, boolean pinned) {
+        StoredEntry {
+            text = Objects.requireNonNull(text, "text");
+        }
+    }
+
+    public record Entry(String text, Category category, int codePoints, boolean pinned) {
         public Entry {
             text = Objects.requireNonNull(text, "text");
             category = Objects.requireNonNull(category, "category");
@@ -138,14 +209,18 @@ public final class ClipboardHistory {
             }
         }
 
-        static Entry from(String text) {
+        static Entry from(String text, boolean pinned) {
             ClipboardPanelSnapshot snapshot = ClipboardPanelSnapshot.fromPrimaryText(text);
             if (!snapshot.hasText()) {
                 throw new IllegalArgumentException("invalid clipboard history text");
             }
             String checked = snapshot.text();
             int codePoints = checked.codePointCount(0, checked.length());
-            return new Entry(checked, classify(checked), codePoints);
+            return new Entry(checked, classify(checked), codePoints, pinned);
+        }
+
+        Entry withPinned(boolean nextPinned) {
+            return new Entry(text, category, codePoints, nextPinned);
         }
 
         public String preview(int maximumCodePoints) {
@@ -154,7 +229,8 @@ public final class ClipboardHistory {
 
         @Override
         public String toString() {
-            return "Entry{category=" + category + ", codePoints=" + codePoints + '}';
+            return "Entry{category=" + category + ", codePoints=" + codePoints
+                    + ", pinned=" + pinned + '}';
         }
     }
 }

@@ -140,7 +140,7 @@ EXPECTED_ROWS: dict[str, MatrixExpectation] = {
     ),
     "android-clipboard-history": MatrixExpectation(
         "format",
-        "1",
+        "2",
         (
             "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryCodec.java",
             "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryStore.java",
@@ -252,6 +252,10 @@ EXPECTED_VERSION_CONSTANTS: dict[tuple[str, str], str] = {
     (
         "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryCodec.java",
         "FORMAT_VERSION",
+    ): "2",
+    (
+        "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryCodec.java",
+        "LEGACY_FORMAT_VERSION",
     ): "1",
     (
         "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryStore.java",

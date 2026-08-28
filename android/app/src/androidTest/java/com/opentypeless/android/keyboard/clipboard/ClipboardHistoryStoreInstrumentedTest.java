@@ -8,6 +8,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.opentypeless.android.security.LocalClipboardCipher;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import org.junit.After;
 import org.junit.Before;
@@ -77,6 +80,43 @@ public final class ClipboardHistoryStoreInstrumentedTest {
         assertEquals("future-payload",
                 raw.getString(ClipboardHistoryStore.ENCRYPTED_PAYLOAD, ""));
         assertEquals("ephemeral", future.history().entries().get(0).text());
+
+        String innerFuture = ClipboardHistoryCodec.MAGIC + "\n3";
+        String protectedFuture = new LocalClipboardCipher().encrypt(innerFuture);
+        assertTrue(raw.edit()
+                .putInt(ClipboardHistoryStore.FORMAT_VERSION, 2)
+                .putString(ClipboardHistoryStore.ENCRYPTED_PAYLOAD, protectedFuture)
+                .commit());
+        ClipboardHistoryStore.Result futurePayload = store.loadOnly();
+        assertEquals(ClipboardHistoryStore.Status.FUTURE_VERSION, futurePayload.status());
+        assertEquals(protectedFuture,
+                raw.getString(ClipboardHistoryStore.ENCRYPTED_PAYLOAD, ""));
+    }
+
+    @Test
+    public void encryptedV1MigratesAtomicallyAndMutationsPersistInV2() {
+        String legacyText = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "legacy private clip".getBytes(StandardCharsets.UTF_8));
+        String legacyPayload = ClipboardHistoryCodec.MAGIC + "\n1\n" + legacyText;
+        assertTrue(raw.edit()
+                .putInt(ClipboardHistoryStore.FORMAT_VERSION, 1)
+                .putString(
+                        ClipboardHistoryStore.ENCRYPTED_PAYLOAD,
+                        new LocalClipboardCipher().encrypt(legacyPayload))
+                .commit());
+
+        ClipboardHistoryStore store = new ClipboardHistoryStore(context);
+        ClipboardHistoryStore.Result migrated = store.loadOnly();
+
+        assertEquals(ClipboardHistoryStore.Status.MIGRATED, migrated.status());
+        assertEquals(2, raw.getInt(ClipboardHistoryStore.FORMAT_VERSION, -1));
+        assertEquals("legacy private clip", migrated.history().entries().get(0).text());
+        assertFalse(migrated.history().entries().get(0).pinned());
+
+        assertTrue(store.setPinned("legacy private clip", true).persisted());
+        assertTrue(store.loadOnly().history().entries().get(0).pinned());
+        assertTrue(store.delete("legacy private clip").persisted());
+        assertEquals(0, store.loadOnly().history().size());
     }
 
     @Test

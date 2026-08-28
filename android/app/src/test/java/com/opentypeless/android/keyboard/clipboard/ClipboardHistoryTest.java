@@ -27,6 +27,50 @@ public final class ClipboardHistoryTest {
     }
 
     @Test
+    public void pinUnpinAndDeleteKeepPinnedSectionAheadOfMru() {
+        ClipboardHistory history = ClipboardHistory.empty()
+                .record("first")
+                .record("second")
+                .record("third")
+                .setPinned("second", true)
+                .setPinned("first", true);
+
+        assertEquals(List.of("first", "second", "third"), texts(history.entries()));
+        assertEquals(List.of(true, true, false), pins(history.entries()));
+
+        history = history.record("second");
+        assertEquals(List.of("second", "first", "third"), texts(history.entries()));
+        assertEquals(List.of(true, true, false), pins(history.entries()));
+
+        history = history.setPinned("second", false).delete("first");
+        assertEquals(List.of("second", "third"), texts(history.entries()));
+        assertEquals(List.of(false, false), pins(history.entries()));
+    }
+
+    @Test
+    public void capacityEvictsOldestUnpinnedBeforePinned() {
+        ClipboardHistory history = ClipboardHistory.empty().record("keep").setPinned("keep", true);
+        for (int index = 0; index < ClipboardHistory.MAX_ENTRIES; index++) {
+            history = history.record("item-" + index);
+        }
+
+        assertEquals(ClipboardHistory.MAX_ENTRIES, history.size());
+        assertEquals("keep", history.entries().get(0).text());
+        assertTrue(history.entries().get(0).pinned());
+        assertFalse(texts(history.entries()).contains("item-0"));
+
+        ClipboardHistory allPinned = ClipboardHistory.empty();
+        for (int index = 0; index < ClipboardHistory.MAX_ENTRIES; index++) {
+            String text = "pinned-" + index;
+            allPinned = allPinned.record(text).setPinned(text, true);
+        }
+        allPinned = allPinned.record("new unpinned");
+        assertEquals(ClipboardHistory.MAX_ENTRIES, allPinned.size());
+        assertTrue(texts(allPinned.entries()).contains("new unpinned"));
+        assertFalse(texts(allPinned.entries()).contains("pinned-0"));
+    }
+
+    @Test
     public void totalCodePointLimitEvictsOldestWithoutTruncatingEntries() {
         String large = "汉".repeat(ClipboardPanelSnapshot.MAX_TEXT_CODE_POINTS);
         // The suffixed entry is 40,001 code points and therefore rejected by the editor bound.
@@ -81,5 +125,9 @@ public final class ClipboardHistoryTest {
 
     private static List<String> texts(List<ClipboardHistory.Entry> entries) {
         return entries.stream().map(ClipboardHistory.Entry::text).toList();
+    }
+
+    private static List<Boolean> pins(List<ClipboardHistory.Entry> entries) {
+        return entries.stream().map(ClipboardHistory.Entry::pinned).toList();
     }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""KBD-011 fail-closed encrypted clipboard-history and search source boundary."""
+"""KBD-011 encrypted clipboard-history, observer lifecycle and mutation boundary."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ READER_TEST = Path("app/src/androidTest/java/com/opentypeless/android/keyboard/c
 STORE_TEST = Path("app/src/androidTest/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryStoreInstrumentedTest.java")
 PANEL_TEST = Path("app/src/androidTest/java/com/opentypeless/android/keyboard/clipboard/KeyboardClipboardPanelInstrumentedTest.java")
 HOST_TEST = Path("test-host/src/androidTest/java/com/opentypeless/testhost/TestHostInstrumentedTest.java")
-ADR = Path("../docs/adr/0014-clipboard-history-encrypted-format.md")
+ADR = Path("../docs/adr/0016-active-ime-clipboard-capture-and-pinned-format.md")
 EXPECTED_FILES = {
     "ClipboardHistory.java",
     "ClipboardHistoryCodec.java",
@@ -124,8 +124,11 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "MAX_TOTAL_CODE_POINTS=120_000",
         "MAX_SEARCH_CODE_POINTS=64",
         "enumCategory{ALL,TEXT,NUMBER,LINK}",
-        "updated.size()>=MAX_ENTRIES",
-        "total+entry.codePoints()>MAX_TOTAL_CODE_POINTS",
+        "ClipboardHistorysetPinned(Stringtext,booleanpinned)",
+        "ClipboardHistorydelete(Stringtext)",
+        "recordEntry(Stringtext,Categorycategory,intcodePoints,booleanpinned)",
+        "desired.size()>MAX_ENTRIES||total>MAX_TOTAL_CODE_POINTS",
+        "oldestEvictionCandidate(desired,newest)",
         "entry.text().toLowerCase(Locale.ROOT).contains(needle)",
         'return"ClipboardHistory{entries="+entries.size()',
     )
@@ -140,12 +143,15 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
 
     codec_compact = _compact(codec)
     codec_tokens = (
-        "FORMAT_VERSION=1",
+        "FORMAT_VERSION=2",
+        "LEGACY_FORMAT_VERSION=1",
         'MAGIC="opentypeless-clipboard-history"',
         "MAX_ENCODED_PAYLOAD_CHARS=700_000",
         "Base64.getUrlEncoder().withoutPadding()",
         "CodingErrorAction.REPORT",
-        "ClipboardHistory.fromNewestFirst(texts)",
+        "decodeVersion1(Stringencoded)",
+        "entry.pinned()?\"p:\":\"u:\"",
+        "ClipboardHistory.fromStoredEntries(entries)",
         "!encode(history).equals(encoded)",
     )
     if (
@@ -156,7 +162,7 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     ):
         violations.append(Violation(
             "KBD011_CODEC_BOUNDARY",
-            "v1 codec must be canonical, bounded and strict UTF-8",
+            "v2 codec and frozen v1 migration must be canonical, bounded and strict UTF-8",
         ))
 
     cipher_compact = _compact(cipher)
@@ -187,7 +193,11 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         ".putInt(FORMAT_VERSION,ClipboardHistoryCodec.FORMAT_VERSION)",
         ".putString(ENCRYPTED_PAYLOAD,encrypted)",
         ".commit()",
-        "version!=ClipboardHistoryCodec.FORMAT_VERSION",
+        "version!=ClipboardHistoryCodec.FORMAT_VERSION&&version!=ClipboardHistoryCodec.LEGACY_FORMAT_VERSION",
+        "ClipboardHistoryCodec.decodeVersion1(plaintext)",
+        "Status.MIGRATED",
+        "ResultsetPinned(Stringtext,booleanpinned)",
+        "Resultdelete(Stringtext)",
         "returnnewLoaded(ClipboardHistory.empty(),Status.FUTURE_VERSION)",
     )
     if (
@@ -197,7 +207,7 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
     ):
         violations.append(Violation(
             "KBD011_STORE_BOUNDARY",
-            "store must keep the accepted v1 cipher/format and no editor/thread capability",
+            "store must keep the clipboard cipher domain, migrate v1 to v2 and own no editor/thread capability",
         ))
 
     panel_forbidden = (
@@ -212,6 +222,8 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "SEARCH_OVERLAY_HEIGHT_DP=60",
         "voidonPaste(Stringtext)",
         "voidonRefresh()",
+        "voidonPinChanged(Stringtext,booleanpinned)",
+        "voidonDelete(Stringtext)",
         "voidonSearchEditingChanged(booleanediting)",
         "voidonClearHistory()",
         "booleanappendSearchText(Stringtext)",
@@ -220,6 +232,8 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "history=ClipboardHistory.empty()",
         "query=\"\"",
         "if(generation==renderGeneration)listener.onPaste(exactText)",
+        "listener.onPinChanged(exactText,!entry.pinned())",
+        "listener.onDelete(exactText)",
     )
     if (
         any(token in panel for token in panel_forbidden)
@@ -257,6 +271,15 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "clipboardHistoryStore=newClipboardHistoryStore(this)",
         "caseMENU_CLIPBOARD->showClipboardPanel()",
         "ClipboardPanelSnapshotcurrent=SystemClipboardReader.readCurrentText(this)",
+        "manager.addPrimaryClipChangedListener(clipboardObserver)",
+        "manager.removePrimaryClipChangedListener(clipboardObserver)",
+        "privatevoidcaptureObservedClipboard()",
+        "if(serviceDestroyed||clipboardObservationRestricted)return",
+        "ClipboardPanelSnapshotsnapshot=SystemClipboardReader.readCurrentText(this)",
+        "ClipboardHistoryStore.Resultresult=store.loadAndRecord(snapshot)",
+        "booleanrestrictClipboardObservation=sensitiveField||!currentLearningAllowed",
+        "clipboardObservationRestricted=restrictClipboardObservation",
+        "unregisterClipboardObserver();hideClipboardPanel()",
         "finallongrequest=++clipboardHistoryRequest",
         "finallongrequestEpoch=editorEpoch",
         "localIo.execute(()->",
@@ -267,6 +290,8 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
         "clipboard.deleteSearchCodePoint();return",
         "clipboard.finishSearchEditing();return",
         "hideClipboardPanel();closeIdleRimeSession();insertKeyboardText(snapshot.text())",
+        "store.setPinned(snapshot.text(),pinned)",
+        "store.delete(snapshot.text())",
         "clipboardHistoryRequest++;restoreClipboardSearchPadding()",
     )
     if any(token not in service_compact for token in service_tokens):
@@ -279,20 +304,38 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
             "KBD011_LIFECYCLE_CLEAR",
             "clipboard bodies and search must clear on all input lifecycles",
         ))
+    for lifecycle in ("onFinishInputView", "onWindowHidden", "onFinishInput"):
+        match = re.search(
+            rf"public void {lifecycle}\([^)]*\) \{{(?P<body>.*?)\n    \}}",
+            service,
+            re.DOTALL,
+        )
+        if match and "unregisterClipboardObserver" in match.group("body"):
+            violations.append(Violation(
+                "KBD011_HIDDEN_CAPTURE",
+                f"{lifecycle} must not stop the IME-service clipboard observer",
+            ))
 
     required_tests = (
         (tests[SNAPSHOT_TEST], "unsupportedAndOversizedInputsNeverRetainPartialText"),
         (tests[HISTORY_TEST], "recordIsBoundedMostRecentFirstAndMovesDuplicates"),
+        (tests[HISTORY_TEST], "pinUnpinAndDeleteKeepPinnedSectionAheadOfMru"),
+        (tests[HISTORY_TEST], "capacityEvictsOldestUnpinnedBeforePinned"),
         (tests[HISTORY_TEST], "searchAndCategoriesAreComputedWithoutStoredMetadata"),
         (tests[CODEC_TEST], "unknownMalformedDuplicateAndNonCanonicalPayloadsFailClosed"),
+        (tests[CODEC_TEST], "authenticatedV1MigrationAssignsEveryLegacyEntryUnpinned"),
         (tests[CIPHER_TEST], "plaintextAndTamperedCiphertextFailClosed"),
         (tests[READER_TEST], "uriAndIntentItemsAreNotCoercedOrResolved"),
         (tests[STORE_TEST], "realKeystorePersistsMultipleEntriesWithoutPlaintextAtRest"),
         (tests[STORE_TEST], "corruptV1RecoversButUnknownFutureVersionIsNotOverwritten"),
+        (tests[STORE_TEST], "encryptedV1MigratesAtomicallyAndMutationsPersistInV2"),
         (tests[PANEL_TEST], "cardsRenderMultipleEntriesPasteExactTextAndInvalidateOldViews"),
         (tests[PANEL_TEST], "categoryAndQwertySearchFilterTheBoundedHistory"),
         (tests[PANEL_TEST], "clearRequiresTwoClicksAndLifecycleDropsEveryBodyAndQuery"),
+        (tests[PANEL_TEST], "perEntryPinAndDeleteCallbacksAreExactAndStaleSafe"),
         (tests[HOST_TEST], "selectedImeClipboardPastesCurrentTextAndHidesInSensitiveFieldWhenRequested"),
+        (tests[HOST_TEST], "hidden clipboard first"),
+        (tests[HOST_TEST], "hidden clipboard second"),
         (tests[HOST_TEST], "Set<String> clipboardAction"),
         (tests[HOST_TEST], "focusField(R.id.host_no_learning)"),
     )
@@ -310,18 +353,20 @@ def inspect_android(android_root: Path) -> tuple[Violation, ...]:
 
     adr_compact = _compact(adr)
     adr_tokens = (
-        "#ADR-0014:Clipboardhistoryencryptedformatandexplicit-captureboundary",
+        "#ADR-0016:IME-serviceclipboardcapture,per-entrydeletionandpinnedv2format",
         "##StatusAccepted",
-        "atmost100distinctentries",
-        "atmost120,000Unicodecodepoints",
+        "100distinctentries",
+        "120,000Unicodecodepoints",
         "opentypeless_clipboard_history_v1",
         "OpenTypelessClipboard:v1",
-        "Donotregister`OnPrimaryClipChangedListener`",
+        "includingwhileitskeyboardwindowishidden",
+        "format_version=2",
+        "assigningeverylegacyentry`pinned=false`",
     )
     if any(token not in adr_compact for token in adr_tokens):
         violations.append(Violation(
             "KBD011_ACCEPTED_ADR",
-            "ADR-0014 must remain Accepted and match the shipped format/privacy boundary",
+            "ADR-0016 must remain Accepted and match the shipped observer/format/privacy boundary",
         ))
     return tuple(violations)
 

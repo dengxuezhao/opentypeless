@@ -3,6 +3,7 @@ package com.opentypeless.android.ime;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -954,6 +955,12 @@ public final class OpenTypelessImeService extends InputMethodService
     private KeyboardCandidateBar keyboardCandidateBar;
     private KeyboardClipboardPanel keyboardClipboardPanel;
     private ClipboardHistoryStore clipboardHistoryStore;
+    private ClipboardManager systemClipboard;
+    private final ClipboardManager.OnPrimaryClipChangedListener clipboardObserver =
+            this::captureObservedClipboard;
+    private boolean clipboardObserverRegistered;
+    private boolean clipboardObservationRestricted;
+    private long clipboardObservationGeneration;
     private KeyboardEmojiPanel keyboardEmojiPanel;
     private View keyboardTypingSurface;
     private KeyboardToolbarLayout keyboardToolbarLayout;
@@ -1111,6 +1118,7 @@ public final class OpenTypelessImeService extends InputMethodService
         personalizationStore = new PersonalizationStore(this);
         draftPreferences = new SecurePreferences(this);
         localIo = Executors.newSingleThreadExecutor();
+        registerClipboardObserver();
         selectedMode = settingsRepository.loadDefaultMode();
         localIo.execute(() -> {
             AppSettings initialSettings = settingsRepository.load();
@@ -1428,6 +1436,16 @@ public final class OpenTypelessImeService extends InputMethodService
                     @Override
                     public void onRefresh() {
                         refreshClipboardPanel();
+                    }
+
+                    @Override
+                    public void onPinChanged(String text, boolean pinned) {
+                        setClipboardItemPinned(text, pinned);
+                    }
+
+                    @Override
+                    public void onDelete(String text) {
+                        deleteClipboardItem(text);
                     }
 
                     @Override
@@ -4849,6 +4867,128 @@ public final class OpenTypelessImeService extends InputMethodService
         }
     }
 
+    private void setClipboardItemPinned(String text, boolean pinned) {
+        mutateClipboardItem(text, pinned, false);
+    }
+
+    private void deleteClipboardItem(String text) {
+        mutateClipboardItem(text, false, true);
+    }
+
+    private void mutateClipboardItem(String text, boolean pinned, boolean delete) {
+        ClipboardPanelSnapshot snapshot = ClipboardPanelSnapshot.fromPrimaryText(text);
+        KeyboardClipboardPanel panel = keyboardClipboardPanel;
+        ClipboardHistoryStore store = clipboardHistoryStore;
+        if (!snapshot.hasText()
+                || panel == null
+                || store == null
+                || localIo == null
+                || panel.root().getVisibility() != View.VISIBLE
+                || !clipboardHistoryAllowed()) {
+            return;
+        }
+        panel.showLoading();
+        final long request = ++clipboardHistoryRequest;
+        final long requestEpoch = editorEpoch;
+        try {
+            localIo.execute(() -> {
+                ClipboardHistoryStore.Result result = delete
+                        ? store.delete(snapshot.text())
+                        : store.setPinned(snapshot.text(), pinned);
+                postUiIfAlive(() -> {
+                    if (request != clipboardHistoryRequest
+                            || requestEpoch != editorEpoch
+                            || panel.root().getVisibility() != View.VISIBLE
+                            || !clipboardHistoryAllowed()) {
+                        return;
+                    }
+                    if (result.persisted()) {
+                        panel.render(
+                                result.history(),
+                                result.history().size() == 0
+                                        ? ClipboardPanelSnapshot.State.EMPTY
+                                        : ClipboardPanelSnapshot.State.TEXT);
+                        setStatus(
+                                delete
+                                        ? R.string.ime_status_clipboard_item_deleted
+                                        : pinned
+                                                ? R.string.ime_status_clipboard_item_pinned
+                                                : R.string.ime_status_clipboard_item_unpinned,
+                                false);
+                    } else {
+                        setStatus(R.string.ime_status_clipboard_item_update_failed, true);
+                        refreshClipboardPanel();
+                    }
+                });
+            });
+        } catch (RejectedExecutionException unavailable) {
+            setStatus(R.string.ime_status_clipboard_item_update_failed, true);
+            refreshClipboardPanel();
+        }
+    }
+
+    private void registerClipboardObserver() {
+        if (clipboardObserverRegistered || serviceDestroyed) return;
+        try {
+            ClipboardManager manager = getSystemService(ClipboardManager.class);
+            if (manager == null) return;
+            manager.addPrimaryClipChangedListener(clipboardObserver);
+            systemClipboard = manager;
+            clipboardObserverRegistered = true;
+            clipboardObservationGeneration++;
+        } catch (RuntimeException unavailable) {
+            systemClipboard = null;
+            clipboardObserverRegistered = false;
+        }
+    }
+
+    private void unregisterClipboardObserver() {
+        clipboardObservationGeneration++;
+        ClipboardManager manager = systemClipboard;
+        systemClipboard = null;
+        if (!clipboardObserverRegistered || manager == null) {
+            clipboardObserverRegistered = false;
+            return;
+        }
+        clipboardObserverRegistered = false;
+        try {
+            manager.removePrimaryClipChangedListener(clipboardObserver);
+        } catch (RuntimeException ignored) {
+            // The service is closing; generation invalidation still prevents any stale UI action.
+        }
+    }
+
+    private void captureObservedClipboard() {
+        if (serviceDestroyed || clipboardObservationRestricted) return;
+        ClipboardHistoryStore store = clipboardHistoryStore;
+        ExecutorService io = localIo;
+        if (store == null || io == null) return;
+        ClipboardPanelSnapshot snapshot = SystemClipboardReader.readCurrentText(this);
+        if (!snapshot.hasText()) return;
+        final long observation = clipboardObservationGeneration;
+        final long observedEpoch = editorEpoch;
+        try {
+            io.execute(() -> {
+                ClipboardHistoryStore.Result result = store.loadAndRecord(snapshot);
+                postUiIfAlive(() -> {
+                    if (observation != clipboardObservationGeneration
+                            || clipboardObservationRestricted
+                            || observedEpoch != editorEpoch) {
+                        return;
+                    }
+                    KeyboardClipboardPanel panel = keyboardClipboardPanel;
+                    if (panel != null
+                            && panel.root().getVisibility() == View.VISIBLE
+                            && clipboardHistoryAllowed()) {
+                        panel.render(result.history(), snapshot.state());
+                    }
+                });
+            });
+        } catch (RejectedExecutionException ignored) {
+            // Explicit panel Refresh remains available if the serialized store is shutting down.
+        }
+    }
+
     private void clearClipboardHistory() {
         KeyboardClipboardPanel panel = keyboardClipboardPanel;
         ClipboardHistoryStore store = clipboardHistoryStore;
@@ -6173,6 +6313,11 @@ public final class OpenTypelessImeService extends InputMethodService
         }
         sensitiveField = privacy.sensitive();
         currentLearningAllowed = privacy.learningAllowed();
+        boolean restrictClipboardObservation = sensitiveField || !currentLearningAllowed;
+        if (restrictClipboardObservation != clipboardObservationRestricted) {
+            clipboardObservationRestricted = restrictClipboardObservation;
+            clipboardObservationGeneration++;
+        }
         if (keyboardCandidateBar != null) {
             keyboardCandidateBar.clear();
             keyboardCandidateBar.setPlaintextVisible(!sensitiveField);
@@ -6394,6 +6539,7 @@ public final class OpenTypelessImeService extends InputMethodService
     @Override
     public void onDestroy() {
         if (latinKeyboardLayout != null) latinKeyboardLayout.cancelTransientGestures();
+        unregisterClipboardObserver();
         hideClipboardPanel();
         hideEmojiPanel();
         closeRimeComposition(true);

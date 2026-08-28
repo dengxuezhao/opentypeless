@@ -48,10 +48,17 @@
     <string name="ime_cd_clipboard_finish_search">Show search results</string>
     <string name="ime_cd_clipboard_clear_search">Clear clipboard search</string>
     <string name="ime_cd_clipboard_paste_item">%1$s: %2$s. Tap to paste</string>
+    <string name="ime_cd_clipboard_pin_item">Pin %1$s</string>
+    <string name="ime_cd_clipboard_unpin_item">Unpin %1$s</string>
+    <string name="ime_cd_clipboard_delete_item">Delete %1$s</string>
     <string name="ime_status_clipboard_history_memory_only">Clipboard item is visible now but could not be saved</string>
     <string name="ime_status_clipboard_history_future">Clipboard history was created by a newer version and was left unchanged</string>
     <string name="ime_status_clipboard_history_cleared">Clipboard history cleared</string>
     <string name="ime_status_clipboard_history_clear_failed">Clipboard history could not be cleared</string>
+    <string name="ime_status_clipboard_item_pinned">Clipboard item pinned</string>
+    <string name="ime_status_clipboard_item_unpinned">Clipboard item unpinned</string>
+    <string name="ime_status_clipboard_item_deleted">Clipboard item deleted</string>
+    <string name="ime_status_clipboard_item_update_failed">Clipboard item could not be updated</string>
     <string name="ime_emoji_title">Emoji</string>
     <string name="ime_emoji_close">Close</string>
     <string name="ime_emoji_recent_empty">No recently used Emoji</string>

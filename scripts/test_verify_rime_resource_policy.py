@@ -77,7 +77,7 @@ class ResourcePolicyContractTest(unittest.TestCase):
         )
         self.assertEqual(3, len(self.contract.fixtures))
         self.assertEqual(16, len(self.contract.native_engines))
-        self.assertEqual(107, len(self.contract.artifact_expectations))
+        self.assertEqual(111, len(self.contract.artifact_expectations))
         self.assertEqual(24, len(self.contract.opaque_binaries))
         self.assertEqual(9, len(self.contract.reviewed_dynamic_sources))
         self.assertEqual(1, len(self.contract.trusted_tree_manifest_sha256))

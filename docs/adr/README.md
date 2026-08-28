@@ -52,3 +52,4 @@ Feature Flag 删除条件等不可逆决定时，实施前必须存在可引用�
 | [ADR-0013](0013-emoji-recents-private-format.md) | Emoji recents private format and sensitive-field policy | Accepted | 2026-08-23 | `KBD-010` |
 | [ADR-0014](0014-clipboard-history-encrypted-format.md) | Clipboard history encrypted format and explicit-capture boundary | Accepted | 2026-08-27 | `KBD-011` |
 | [ADR-0015](0015-expanded-emoji-catalog-search.md) | Expanded Emoji catalog, virtualized grid and in-memory search | Accepted | 2026-08-27 | `KBD-010` |
+| [ADR-0016](0016-active-ime-clipboard-capture-and-pinned-format.md) | IME-service clipboard capture, per-entry deletion and pinned v2 format | Accepted | 2026-08-28 | `KBD-011` |

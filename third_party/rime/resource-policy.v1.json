@@ -1208,6 +1208,40 @@
       "profiles": ["test"],
       "required_synthetic_fixture_ids": [],
       "required_native_engine_ids": []
+    },
+    {
+      "sha256": "73a823678be80efac8795d4558684598e495d5198d48301eafba0d1b53b1af44",
+      "profiles": ["product"],
+      "required_synthetic_fixture_ids": [],
+      "required_native_engine_ids": [
+        "rime-arm64-adapter", "rime-arm64-engine",
+        "rime-x86_64-adapter", "rime-x86_64-engine",
+        "sherpa-arm64-onnx-apk", "sherpa-arm64-jni-apk",
+        "sherpa-x86_64-onnx-apk", "sherpa-x86_64-jni-apk"
+      ]
+    },
+    {
+      "sha256": "c86395b8d8605a1b8cb219c1e30e22e4b9319bbe58e39108bf58152805571252",
+      "profiles": ["product"],
+      "required_synthetic_fixture_ids": [],
+      "required_native_engine_ids": [
+        "rime-arm64-adapter", "rime-arm64-engine",
+        "rime-x86_64-adapter", "rime-x86_64-engine",
+        "sherpa-arm64-onnx-apk", "sherpa-arm64-jni-apk",
+        "sherpa-x86_64-onnx-apk", "sherpa-x86_64-jni-apk"
+      ]
+    },
+    {
+      "sha256": "581f36b7d85108f4d8eb40539596dcaa08a6372d24f1ddeb99800d5c63c8e233",
+      "profiles": ["test"],
+      "required_synthetic_fixture_ids": [],
+      "required_native_engine_ids": []
+    },
+    {
+      "sha256": "679d1e7b373ec07cbea530eb761991b3f49f06e4b97639b1e3d655cad26dd700",
+      "profiles": ["test"],
+      "required_synthetic_fixture_ids": [],
+      "required_native_engine_ids": []
     }
   ],
   "opaque_binary_baseline": [
@@ -1401,8 +1435,8 @@
     },
     {
       "path": "android/app/src/main/java/com/opentypeless/android/keyboard/clipboard/ClipboardHistoryCodec.java",
-      "bytes": 4150,
-      "sha256": "58facd2f9e5e2ade8de24e9150d2b31a20edfc9576737dbe60271d9f9684d163",
+      "bytes": 7243,
+      "sha256": "e8f3b590502f9f13f22cc7729773e06f658bf3225fdd8d2c4f9ec37c2aa2da2c",
       "classification": "PINNED_EXISTING_DECODER"
     },
     {

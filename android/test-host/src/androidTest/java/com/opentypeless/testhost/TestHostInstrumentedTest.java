@@ -507,8 +507,11 @@ public final class TestHostInstrumentedTest {
         ClipboardManager clipboard =
                 (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
         assertNotNull("test host clipboard service is unavailable", clipboard);
-        instrumentation.runOnMainSync(() -> clipboard.setPrimaryClip(
-                ClipData.newPlainText("KBD-011 fixture", "clipboard fixture")));
+        String suffix = Long.toString(SystemClock.uptimeMillis());
+        String first = "hidden clipboard first " + suffix;
+        String second = "hidden clipboard second " + suffix;
+        String restricted = "restricted clipboard " + suffix;
+        String resumed = "resumed clipboard " + suffix;
         try {
             focusField(R.id.host_plain_text);
             UiAutomation automation = instrumentation.getUiAutomation();
@@ -520,19 +523,57 @@ public final class TestHostInstrumentedTest {
             activateImeNode(automation, expectedPackage, Set.of(
                     "Open the English keyboard", "打开英文键盘"), false);
 
+            hideKeyboard(R.id.host_plain_text);
+            instrumentation.runOnMainSync(() -> clipboard.setPrimaryClip(
+                    ClipData.newPlainText("KBD-011 first", first)));
+            SystemClock.sleep(300L);
+            instrumentation.runOnMainSync(() -> clipboard.setPrimaryClip(
+                    ClipData.newPlainText("KBD-011 second", second)));
+            SystemClock.sleep(400L);
+
+            focusField(R.id.host_plain_text);
+            activateImeNode(automation, expectedPackage, Set.of(
+                    "Open the English keyboard", "打开英文键盘"), false);
+
             Set<String> clipboardAction = Set.of(
                     "Open clipboard history", "打开剪贴板历史");
             activateImeNode(automation, expectedPackage, clipboardAction, false);
-            awaitImeLabel(automation, expectedPackage, Set.of("clipboard fixture"));
-            activateImeNode(
-                    automation, expectedPackage, Set.of("clipboard fixture"), true);
-            assertPlainTextEventually("clipboard fixture", automation, expectedPackage);
+            awaitImeLabel(automation, expectedPackage, Set.of(first));
+            awaitImeLabel(automation, expectedPackage, Set.of(second));
+
+            activateImeNode(automation, expectedPackage, Set.of(
+                    "Pin " + first, "置顶 " + first), false);
+            awaitImeLabel(automation, expectedPackage, Set.of(
+                    "Unpin " + first, "取消置顶 " + first));
+            activateImeNode(automation, expectedPackage, Set.of(
+                    "Delete " + second, "删除 " + second), false);
+            awaitImeLabelsAbsent(automation, expectedPackage, Set.of(second));
+            activateImeNode(automation, expectedPackage, Set.of(first), true);
+            assertPlainTextEventually(first, automation, expectedPackage);
 
             focusField(R.id.host_otp);
             awaitImeLabelsAbsent(automation, expectedPackage, clipboardAction);
+            hideKeyboard(R.id.host_otp);
+            instrumentation.runOnMainSync(() -> clipboard.setPrimaryClip(
+                    ClipData.newPlainText("KBD-011 restricted", restricted)));
+            SystemClock.sleep(400L);
 
             focusField(R.id.host_no_learning);
             awaitImeLabelsAbsent(automation, expectedPackage, clipboardAction);
+
+            focusField(R.id.host_plain_text);
+            activateImeNode(automation, expectedPackage, Set.of(
+                    "Open the English keyboard", "打开英文键盘"), false);
+            hideKeyboard(R.id.host_plain_text);
+            instrumentation.runOnMainSync(() -> clipboard.setPrimaryClip(
+                    ClipData.newPlainText("KBD-011 resumed", resumed)));
+            SystemClock.sleep(400L);
+            focusField(R.id.host_plain_text);
+            activateImeNode(automation, expectedPackage, Set.of(
+                    "Open the English keyboard", "打开英文键盘"), false);
+            activateImeNode(automation, expectedPackage, clipboardAction, false);
+            awaitImeLabel(automation, expectedPackage, Set.of(resumed));
+            awaitImeLabelsAbsent(automation, expectedPackage, Set.of(restricted));
         } finally {
             instrumentation.runOnMainSync(clipboard::clearPrimaryClip);
         }
@@ -961,6 +1002,17 @@ public final class TestHostInstrumentedTest {
             manager.showSoftInput(field, InputMethodManager.SHOW_IMPLICIT);
         });
         instrumentation.waitForIdleSync();
+    }
+
+    private void hideKeyboard(int fieldId) {
+        EditText field = activity.findViewById(fieldId);
+        instrumentation.runOnMainSync(() -> {
+            InputMethodManager manager =
+                    (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+            manager.hideSoftInputFromWindow(field.getWindowToken(), 0);
+        });
+        instrumentation.waitForIdleSync();
+        SystemClock.sleep(250L);
     }
 
     private void assertToolbarPrivacyState(

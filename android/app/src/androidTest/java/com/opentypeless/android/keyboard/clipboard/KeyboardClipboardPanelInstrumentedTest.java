@@ -33,8 +33,10 @@ public final class KeyboardClipboardPanelInstrumentedTest {
             harness.panel.render(history, ClipboardPanelSnapshot.State.TEXT);
 
             assertEquals(3, harness.panel.entriesContainer().getChildCount());
-            Button newest = (Button) harness.panel.entriesContainer().getChildAt(0);
-            Button longCard = (Button) harness.panel.entriesContainer().getChildAt(1);
+            Button newest = harness.panel.root().findViewWithTag(
+                    KeyboardClipboardPanel.CONTENT_TAG_PREFIX + 0);
+            Button longCard = harness.panel.root().findViewWithTag(
+                    KeyboardClipboardPanel.CONTENT_TAG_PREFIX + 1);
             assertEquals("https://example.com/path", newest.getText().toString());
             assertTrue(longCard.getText().toString().endsWith("…"));
             assertTrue(longCard.performClick());
@@ -83,8 +85,37 @@ public final class KeyboardClipboardPanelInstrumentedTest {
             assertFalse(harness.panel.isSearchEditing());
             assertEquals(1, harness.searchFinishes.get());
             assertEquals(1, harness.panel.entriesContainer().getChildCount());
-            assertTrue(((Button) harness.panel.entriesContainer().getChildAt(0))
+            assertTrue(((Button) harness.panel.root().findViewWithTag(
+                    KeyboardClipboardPanel.CONTENT_TAG_PREFIX + 0))
                     .getText().toString().contains("example"));
+        });
+    }
+
+    @Test
+    public void perEntryPinAndDeleteCallbacksAreExactAndStaleSafe() {
+        onMain(() -> {
+            Harness harness = new Harness();
+            ClipboardHistory history = ClipboardHistory.empty()
+                    .record("first")
+                    .record("second");
+            harness.panel.render(history, ClipboardPanelSnapshot.State.TEXT);
+
+            CenteredIconButton pin = harness.panel.root().findViewWithTag(
+                    KeyboardClipboardPanel.PIN_TAG_PREFIX + 1);
+            CenteredIconButton delete = harness.panel.root().findViewWithTag(
+                    KeyboardClipboardPanel.DELETE_TAG_PREFIX + 0);
+            assertTrue(pin.performClick());
+            assertEquals("first", harness.pinText.get());
+            assertEquals(Boolean.TRUE, harness.pinState.get());
+            assertTrue(delete.performClick());
+            assertEquals("second", harness.deleted.get());
+
+            harness.pinText.set(null);
+            harness.panel.render(
+                    ClipboardHistory.empty().record("replacement"),
+                    ClipboardPanelSnapshot.State.TEXT);
+            pin.performClick();
+            assertNull(harness.pinText.get());
         });
     }
 
@@ -150,6 +181,9 @@ public final class KeyboardClipboardPanelInstrumentedTest {
     private static final class Harness {
         final Context context = ApplicationProvider.getApplicationContext();
         final AtomicReference<String> pasted = new AtomicReference<>();
+        final AtomicReference<String> pinText = new AtomicReference<>();
+        final AtomicReference<Boolean> pinState = new AtomicReference<>();
+        final AtomicReference<String> deleted = new AtomicReference<>();
         final AtomicInteger refreshes = new AtomicInteger();
         final AtomicInteger closes = new AtomicInteger();
         final AtomicInteger clears = new AtomicInteger();
@@ -166,6 +200,17 @@ public final class KeyboardClipboardPanelInstrumentedTest {
                     @Override
                     public void onRefresh() {
                         refreshes.incrementAndGet();
+                    }
+
+                    @Override
+                    public void onPinChanged(String text, boolean pinned) {
+                        pinText.set(text);
+                        pinState.set(pinned);
+                    }
+
+                    @Override
+                    public void onDelete(String text) {
+                        deleted.set(text);
                     }
 
                     @Override

@@ -23,6 +23,10 @@ public final class KeyboardClipboardPanel {
 
         void onRefresh();
 
+        void onPinChanged(String text, boolean pinned);
+
+        void onDelete(String text);
+
         void onClose();
 
         void onSearchEditingChanged(boolean editing);
@@ -32,6 +36,8 @@ public final class KeyboardClipboardPanel {
 
     public static final String ROOT_TAG = "opentypeless-clipboard-panel";
     public static final String CONTENT_TAG_PREFIX = "opentypeless-clipboard-entry-";
+    public static final String PIN_TAG_PREFIX = "opentypeless-clipboard-pin-";
+    public static final String DELETE_TAG_PREFIX = "opentypeless-clipboard-delete-";
     public static final String SEARCH_TAG = "opentypeless-clipboard-search";
     public static final String SEARCH_QUERY_TAG = "opentypeless-clipboard-search-query";
     public static final String REFRESH_TAG = "opentypeless-clipboard-refresh";
@@ -384,6 +390,12 @@ public final class KeyboardClipboardPanel {
         entriesScroller.setVisibility(View.VISIBLE);
         int index = 0;
         for (ClipboardHistory.Entry entry : visible) {
+            LinearLayout cardRow = new LinearLayout(context);
+            cardRow.setOrientation(LinearLayout.HORIZONTAL);
+            cardRow.setGravity(Gravity.CENTER_VERTICAL);
+            cardRow.setPadding(dp(4), 0, dp(4), 0);
+            cardRow.setBackgroundResource(R.drawable.ime_clipboard_card_background);
+
             Button card = new Button(context);
             card.setTag(CONTENT_TAG_PREFIX + index);
             card.setAllCaps(false);
@@ -395,8 +407,8 @@ public final class KeyboardClipboardPanel {
             card.setText(entry.preview(CARD_PREVIEW_CODE_POINTS));
             card.setTextColor(context.getColor(R.color.ime_on_surface));
             card.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-            card.setPadding(dp(14), dp(8), dp(14), dp(8));
-            card.setBackgroundResource(R.drawable.ime_clipboard_card_background);
+            card.setPadding(dp(10), dp(8), dp(8), dp(8));
+            card.setBackgroundColor(context.getColor(android.R.color.transparent));
             card.setContentDescription(context.getString(
                     R.string.ime_cd_clipboard_paste_item,
                     context.getString(categoryLabel(entry.category())),
@@ -406,10 +418,48 @@ public final class KeyboardClipboardPanel {
                 disarmClear();
                 if (generation == renderGeneration) listener.onPaste(exactText);
             });
+            cardRow.addView(card, new LinearLayout.LayoutParams(0, dp(68), 1f));
+
+            CenteredIconButton pin = iconAction(
+                    R.drawable.ime_ic_push_pin,
+                    entry.pinned()
+                            ? R.string.ime_cd_clipboard_unpin_item
+                            : R.string.ime_cd_clipboard_pin_item,
+                    PIN_TAG_PREFIX + index,
+                    ignored -> {
+                        disarmClear();
+                        if (generation == renderGeneration) {
+                            listener.onPinChanged(exactText, !entry.pinned());
+                        }
+                    });
+            pin.setSelected(entry.pinned());
+            pin.setBackgroundResource(entry.pinned()
+                    ? R.drawable.ime_clipboard_tab_selected
+                    : R.drawable.ime_clipboard_tab_default);
+            pin.setContentDescription(context.getString(
+                    entry.pinned()
+                            ? R.string.ime_cd_clipboard_unpin_item
+                            : R.string.ime_cd_clipboard_pin_item,
+                    entry.preview(40)));
+            cardRow.addView(pin, touchTarget());
+
+            CenteredIconButton delete = iconAction(
+                    R.drawable.ime_ic_delete_all,
+                    R.string.ime_cd_clipboard_delete_item,
+                    DELETE_TAG_PREFIX + index,
+                    ignored -> {
+                        disarmClear();
+                        if (generation == renderGeneration) listener.onDelete(exactText);
+                    });
+            delete.setContentDescription(context.getString(
+                    R.string.ime_cd_clipboard_delete_item,
+                    entry.preview(40)));
+            cardRow.addView(delete, touchTarget());
+
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(64));
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(72));
             params.topMargin = dp(3);
-            entries.addView(card, params);
+            entries.addView(cardRow, params);
             index++;
         }
         entriesScroller.scrollTo(0, 0);

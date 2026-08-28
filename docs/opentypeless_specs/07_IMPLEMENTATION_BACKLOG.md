@@ -1027,6 +1027,18 @@ architecture tests、10 mobile-voice tests，clean Gradle graph 191 tasks，app 
 APK 精确资源扫描均为 0 violations / 0 bundled Xiaohè。模拟器确认两条历史跨进程保留且 `exam` 搜索不写入宿主
 字段；小米设备未连接，因此真机安装与验收 `NOT RUN`。
 
+**KBD-011 连续捕获、删除与置顶跟进（2026-08-28，`DONE`）：** 现有 `InputMethodService` 生命周期内注册一个
+系统剪贴板 listener，键盘窗口收起后仍能捕获连续复制的第一项已物化纯文本；不新增独立后台服务、权限、
+URI/Intent 解析、来源元数据、同步或网络。敏感及 `NO_PERSONALIZED_LEARNING` 编辑器会锁存暂停，直到下一次普通
+编辑器启动才恢复。面板新增单条置顶/取消置顶和删除，置顶项排在普通 MRU 前；加密 payload 从 v1 原子迁移到
+canonical v2，旧条目默认不置顶，未知未来版本保持原样。粘贴仍只走唯一 ETM。
+
+focused JVM 17/17、API35 ARM64 clipboard instrumentation 11/11、clipboard architecture 16/16、系统选中
+OpenTypeless 的 Test Host 1/1 PASS；系统用例实测键盘收起后连续复制两条、置顶第一条、删除第二条、粘贴、
+敏感锁存与普通字段恢复，并在结束后恢复 LatinIME。小米设备本次未连接，因此真机安装与验收 `NOT RUN`。
+最终 `verify_android.sh all` 的 121 个 script tests、294 个 source architecture tests、191 个 Gradle tasks、
+Release Lint、Debug/Release 组装及五 APK 精确资源扫描全部 PASS，资源违规为 0。
+
 **KBD-004 完成说明（2026-08-16，`DONE`）：** 新增闭合 field profile，邮箱/URL 提供直达符号，电话、
 数字、日期使用专用数字面板，密码分类优先且不会启用 Voice。`onStartInput` 只把 metadata 映射为 View 状态；
 所有输出继续经 KBD-002 单一 callback 与唯一 ETM。

@@ -47,7 +47,10 @@ class ClipboardPanelContractTest(unittest.TestCase):
         repository = android.parent
         adr_target = (self.root / ADR).resolve()
         adr_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(repository / "docs/adr/0014-clipboard-history-encrypted-format.md", adr_target)
+        shutil.copy2(
+            repository / "docs/adr/0016-active-ime-clipboard-capture-and-pinned-format.md",
+            adr_target,
+        )
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -69,7 +72,7 @@ class ClipboardPanelContractTest(unittest.TestCase):
     def test_current_contract_passes(self) -> None:
         self.assertEqual((), inspect_android(self.root))
 
-    def test_rejects_background_clipboard_listener(self) -> None:
+    def test_rejects_reader_owned_clipboard_listener(self) -> None:
         reader = CLIPBOARD_ROOT / "SystemClipboardReader.java"
         path = self.root / reader
         path.write_text(
@@ -137,6 +140,30 @@ class ClipboardPanelContractTest(unittest.TestCase):
             SERVICE,
             "&& currentLearningAllowed\n                && keyboardToolbarPrivacy.clipboardVisible();",
             "&& keyboardToolbarPrivacy.clipboardVisible();",
+        )
+        self.assertIn("KBD011_SERVICE_WIRING", self.rules())
+
+    def test_rejects_missing_restricted_observation_latch(self) -> None:
+        self.mutate(
+            SERVICE,
+            "boolean restrictClipboardObservation = sensitiveField || !currentLearningAllowed;",
+            "boolean restrictClipboardObservation = false;",
+        )
+        self.assertIn("KBD011_SERVICE_WIRING", self.rules())
+
+    def test_rejects_stopping_observer_when_window_hides(self) -> None:
+        self.mutate(
+            SERVICE,
+            "public void onWindowHidden() {",
+            "public void onWindowHidden() {\n        unregisterClipboardObserver();",
+        )
+        self.assertIn("KBD011_HIDDEN_CAPTURE", self.rules())
+
+    def test_rejects_missing_service_destroy_unregister(self) -> None:
+        self.mutate(
+            SERVICE,
+            "unregisterClipboardObserver();\n        hideClipboardPanel();",
+            "hideClipboardPanel();",
         )
         self.assertIn("KBD011_SERVICE_WIRING", self.rules())
 

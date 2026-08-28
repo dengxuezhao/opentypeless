@@ -4,10 +4,11 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import com.opentypeless.android.security.LocalClipboardCipher;
 import java.util.Objects;
+import java.util.function.UnaryOperator;
 
 /** Serialized local-I/O adapter for the versioned, encrypted clipboard history. */
 public final class ClipboardHistoryStore {
-    public enum Status { OK, RECOVERED, WRITE_FAILED, UNAVAILABLE, FUTURE_VERSION }
+    public enum Status { OK, MIGRATED, RECOVERED, WRITE_FAILED, UNAVAILABLE, FUTURE_VERSION }
 
     public record Result(ClipboardHistory history, Status status) {
         public Result {
@@ -16,7 +17,7 @@ public final class ClipboardHistoryStore {
         }
 
         public boolean persisted() {
-            return status == Status.OK || status == Status.RECOVERED;
+            return status == Status.OK || status == Status.MIGRATED || status == Status.RECOVERED;
         }
     }
 
@@ -49,25 +50,26 @@ public final class ClipboardHistoryStore {
             return new Result(ephemeral, loaded.status);
         }
         if (!current.hasText()) return new Result(visible, loaded.status);
-        try {
-            String payload = ClipboardHistoryCodec.encode(visible);
-            String encrypted = cipher.encrypt(payload);
-            boolean committed = preferences.edit()
-                    .putInt(FORMAT_VERSION, ClipboardHistoryCodec.FORMAT_VERSION)
-                    .putString(ENCRYPTED_PAYLOAD, encrypted)
-                    .commit();
-            if (!committed) return new Result(visible, Status.WRITE_FAILED);
-            return new Result(visible,
-                    loaded.status == Status.RECOVERED ? Status.RECOVERED : Status.OK);
-        } catch (RuntimeException unavailable) {
-            return new Result(visible, Status.WRITE_FAILED);
-        }
+        if (!write(visible)) return new Result(visible, Status.WRITE_FAILED);
+        return new Result(visible, retainedSuccessStatus(loaded.status));
     }
 
     /** Must run off the IME main thread. */
     public Result loadOnly() {
         Loaded loaded = load();
         return new Result(loaded.history, loaded.status);
+    }
+
+    /** Must run off the IME main thread. */
+    public Result setPinned(String text, boolean pinned) {
+        Objects.requireNonNull(text, "text");
+        return mutate(history -> history.setPinned(text, pinned));
+    }
+
+    /** Must run off the IME main thread. */
+    public Result delete(String text) {
+        Objects.requireNonNull(text, "text");
+        return mutate(history -> history.delete(text));
     }
 
     /** Must run off the IME main thread after a second explicit UI confirmation. */
@@ -85,12 +87,24 @@ public final class ClipboardHistoryStore {
             boolean hasPayload = preferences.contains(ENCRYPTED_PAYLOAD);
             if (!hasVersion && !hasPayload) return new Loaded(ClipboardHistory.empty(), Status.OK);
             int version = preferences.getInt(FORMAT_VERSION, -1);
-            if (version != ClipboardHistoryCodec.FORMAT_VERSION) {
+            if (version != ClipboardHistoryCodec.FORMAT_VERSION
+                    && version != ClipboardHistoryCodec.LEGACY_FORMAT_VERSION) {
                 return new Loaded(ClipboardHistory.empty(), Status.FUTURE_VERSION);
             }
             String stored = preferences.getString(ENCRYPTED_PAYLOAD, "");
             if (!hasPayload || !cipher.isEncrypted(stored)) return recoverCorrupt();
-            ClipboardHistory history = ClipboardHistoryCodec.decode(cipher.decrypt(stored));
+            String plaintext = cipher.decrypt(stored);
+            int payloadVersion = ClipboardHistoryCodec.payloadVersion(plaintext);
+            if (payloadVersion > ClipboardHistoryCodec.FORMAT_VERSION) {
+                return new Loaded(ClipboardHistory.empty(), Status.FUTURE_VERSION);
+            }
+            if (payloadVersion != version) return recoverCorrupt();
+            if (version == ClipboardHistoryCodec.LEGACY_FORMAT_VERSION) {
+                ClipboardHistory migrated = ClipboardHistoryCodec.decodeVersion1(plaintext);
+                if (!write(migrated)) return new Loaded(migrated, Status.WRITE_FAILED);
+                return new Loaded(migrated, Status.MIGRATED);
+            }
+            ClipboardHistory history = ClipboardHistoryCodec.decode(plaintext);
             return new Loaded(history, Status.OK);
         } catch (ClassCastException | IllegalArgumentException | IllegalStateException invalid) {
             return recoverCorrupt();
@@ -108,6 +122,35 @@ public final class ClipboardHistoryStore {
         } catch (RuntimeException unavailable) {
             return new Loaded(ClipboardHistory.empty(), Status.UNAVAILABLE);
         }
+    }
+
+    private Result mutate(UnaryOperator<ClipboardHistory> mutation) {
+        Loaded loaded = load();
+        if (loaded.status == Status.FUTURE_VERSION || loaded.status == Status.UNAVAILABLE) {
+            return new Result(loaded.history, loaded.status);
+        }
+        ClipboardHistory updated = Objects.requireNonNull(
+                mutation.apply(loaded.history), "clipboard mutation result");
+        if (!write(updated)) return new Result(updated, Status.WRITE_FAILED);
+        return new Result(updated, retainedSuccessStatus(loaded.status));
+    }
+
+    private boolean write(ClipboardHistory history) {
+        try {
+            String encrypted = cipher.encrypt(ClipboardHistoryCodec.encode(history));
+            return preferences.edit()
+                    .putInt(FORMAT_VERSION, ClipboardHistoryCodec.FORMAT_VERSION)
+                    .putString(ENCRYPTED_PAYLOAD, encrypted)
+                    .commit();
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    private static Status retainedSuccessStatus(Status loaded) {
+        if (loaded == Status.RECOVERED) return Status.RECOVERED;
+        if (loaded == Status.MIGRATED) return Status.MIGRATED;
+        return Status.OK;
     }
 
     private record Loaded(ClipboardHistory history, Status status) {}

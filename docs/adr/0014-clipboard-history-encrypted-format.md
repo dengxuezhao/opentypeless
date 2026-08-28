@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded
+
+Replaced by [ADR-0016](0016-active-ime-clipboard-capture-and-pinned-format.md).
 
 ## Background
 

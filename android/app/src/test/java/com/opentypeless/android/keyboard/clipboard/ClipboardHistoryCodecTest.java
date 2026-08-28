@@ -11,11 +11,12 @@ import org.junit.Test;
 
 public final class ClipboardHistoryCodecTest {
     @Test
-    public void v1RoundTripPreservesExactMruUnicodeOrder() {
+    public void v2RoundTripPreservesPinStateAndExactUnicodeOrder() {
         ClipboardHistory source = ClipboardHistory.empty()
                 .record("first\nline")
                 .record("中文🙂")
-                .record("https://example.com");
+                .record("https://example.com")
+                .setPinned("中文🙂", true);
 
         String encoded = ClipboardHistoryCodec.encode(source);
         ClipboardHistory decoded = ClipboardHistoryCodec.decode(encoded);
@@ -24,6 +25,23 @@ public final class ClipboardHistoryCodecTest {
         assertEquals(encoded, ClipboardHistoryCodec.encode(decoded));
         assertTrue(encoded.startsWith(
                 ClipboardHistoryCodec.MAGIC + "\n" + ClipboardHistoryCodec.FORMAT_VERSION));
+        assertTrue(encoded.contains("\np:"));
+        assertTrue(encoded.contains("\nu:"));
+    }
+
+    @Test
+    public void authenticatedV1MigrationAssignsEveryLegacyEntryUnpinned() {
+        String one = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "one".getBytes(StandardCharsets.UTF_8));
+        String two = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "two".getBytes(StandardCharsets.UTF_8));
+
+        ClipboardHistory migrated = ClipboardHistoryCodec.decodeVersion1(
+                ClipboardHistoryCodec.MAGIC + "\n1\n" + one + "\n" + two);
+
+        assertEquals(List.of("one", "two"),
+                migrated.entries().stream().map(ClipboardHistory.Entry::text).toList());
+        assertTrue(migrated.entries().stream().noneMatch(ClipboardHistory.Entry::pinned));
     }
 
     @Test
@@ -33,16 +51,21 @@ public final class ClipboardHistoryCodecTest {
         String header = ClipboardHistoryCodec.MAGIC + "\n";
 
         assertThrows(IllegalArgumentException.class,
-                () -> ClipboardHistoryCodec.decode(header + "2\n" + one));
+                () -> ClipboardHistoryCodec.decode(header + "3\nu:" + one));
         assertThrows(IllegalArgumentException.class,
-                () -> ClipboardHistoryCodec.decode(header + "1\n" + one + "\n" + one));
+                () -> ClipboardHistoryCodec.decode(header + "2\nu:" + one + "\nu:" + one));
         assertThrows(IllegalArgumentException.class,
-                () -> ClipboardHistoryCodec.decode(header + "1\n" + one + "="));
+                () -> ClipboardHistoryCodec.decode(header + "2\nu:" + one + "="));
         assertThrows(IllegalArgumentException.class,
-                () -> ClipboardHistoryCodec.decode(header + "1\n!!!"));
+                () -> ClipboardHistoryCodec.decode(header + "2\nx:" + one));
         assertThrows(IllegalArgumentException.class,
-                () -> ClipboardHistoryCodec.decode(header + "1\n" + Base64.getUrlEncoder()
+                () -> ClipboardHistoryCodec.decode(header + "2\nu:" + Base64.getUrlEncoder()
                         .withoutPadding().encodeToString(new byte[] {(byte) 0xC3, 0x28})));
+        assertThrows(IllegalArgumentException.class,
+                () -> ClipboardHistoryCodec.decode(
+                        header + "2\nu:" + one + "\np:" + Base64.getUrlEncoder()
+                                .withoutPadding().encodeToString(
+                                        "pinned".getBytes(StandardCharsets.UTF_8))));
     }
 
     @Test
@@ -50,9 +73,9 @@ public final class ClipboardHistoryCodecTest {
         String one = Base64.getUrlEncoder().withoutPadding().encodeToString(
                 "one".getBytes(StandardCharsets.UTF_8));
         StringBuilder tooMany = new StringBuilder(
-                ClipboardHistoryCodec.MAGIC + "\n1");
+                ClipboardHistoryCodec.MAGIC + "\n2");
         for (int index = 0; index <= ClipboardHistory.MAX_ENTRIES; index++) {
-            tooMany.append('\n').append(one).append(index);
+            tooMany.append("\nu:").append(one).append(index);
         }
 
         assertThrows(IllegalArgumentException.class,
